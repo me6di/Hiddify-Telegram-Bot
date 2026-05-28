@@ -1,23 +1,19 @@
 # Description: This file contains all the templates used in the bot.
-from config import LANG
+from config import LANG, SUB_URL
 from UserBot.content import MESSAGES
-from Utils.utils import rial_to_toman, toman_to_rial,all_configs_settings
+from Utils.utils import rial_to_toman, toman_to_rial, all_configs_settings
 from Database.dbManager import USERS_DB
+
 # User Subscription Info Template
 def user_info_template(sub_id, server, usr, header=""):
-    settings = USERS_DB.find_bool_config(key='visible_hiddify_hyperlink')
-    if settings:
-        settings = settings[0]
-        if settings['value']:
-            user_name = f"<a href='{usr['link']}'> {usr['name']} </a>"
-        else:
-            user_name = usr['name']
-    else:
-        user_name = usr['name']
-    # if usr['enable'] == 1:
-    #     status = MESSAGES['ACTIVE_SUBSCRIPTION_STATUS']
-    # else:
-    #     status = MESSAGES['DEACTIVE_SUBSCRIPTION_STATUS']
+    name = usr.get('name', 'User') or 'User'
+    formatted_name = name.replace(' ', '_')
+    base_sub = SUB_URL if SUB_URL.endswith("/") else f"{SUB_URL}/"
+    sub_link = f"{base_sub}{usr['uuid']}/#{formatted_name}"
+    
+    # تغییر لینک از پنل به لینک سابسکریپشن
+    user_name = f"<a href='{sub_link}'> {name} </a>"
+
     return f"""
 {header}
 
@@ -27,7 +23,6 @@ def user_info_template(sub_id, server, usr, header=""):
 {MESSAGES['INFO_REMAINING_DAYS']} {usr['remaining_day']} {MESSAGES['DAY_EXPIRE']}
 {MESSAGES['INFO_ID']} <code>{sub_id}</code>
 """
-# {MESSAGES['SUBSCRIPTION_STATUS']} {status}
 
 # Wallet Info Template
 def wallet_info_template(balance):
@@ -167,31 +162,6 @@ def connection_help_template(header=""):
 <a href='https://github.com/MatsuriDayo/nekoray/releases'>Nekoray</a>
 """
 
-
-# Support Info Template
-# def support_template(owner_info, header=""):
-#     username = None
-#     owner_info = all_configs_settings()
-#     if owner_info:
-#         username = owner_info['support_username'] if owner_info['support_username'] else "-"
-#     else:
-#         username = "-"
-
-#     if LANG == 'FA':
-#         return f"""
-# {header}
-
-# 📞پشتیبانی: {username}
-# """
-
-#     elif LANG == 'EN':
-#         return f"""
-# {header}
-
-# 📞Supporter: {username}
-# """
-
-
 # Alert Package Days Template
 def package_days_expire_soon_template(sub_id, remaining_days):
     if LANG == 'FA':
@@ -206,7 +176,6 @@ Only {remaining_days} days left until your package expires.
 Please purchase a new package.
 Your package ID: <code>{sub_id}</code>
 """
-
 
 # Alert Package Size Template
 def package_size_end_soon_template(sub_id, remaining_size):

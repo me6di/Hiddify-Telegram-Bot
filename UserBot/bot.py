@@ -269,17 +269,6 @@ def renewal_from_wallet_confirm(message: Message):
 
     bot.send_message(message.chat.id, MESSAGES['SUCCESSFUL_RENEWAL'], reply_markup=main_menu_keyboard_markup())
     update_info_subscription(message, uuid)
-    BASE_URL_PANEL = urlparse(server['url']).scheme + "://" + urlparse(server['url']).netloc
-    link = f"{BASE_URL_PANEL}/{urlparse(server['url']).path.split('/')[1]}/{uuid}/"
-    user_name = f"<a href='{link}'> {user_info_process['name']} </a>"
-    bot_users = USERS_DB.find_user(telegram_id=message.chat.id)
-    if bot_users:
-        bot_user = bot_users[0]
-    for ADMIN in ADMINS_ID:
-        admin_bot.send_message(ADMIN,
-                               f"""{MESSAGES['ADMIN_NOTIFY_NEW_RENEWAL']} {user_name} {MESSAGES['ADMIN_NOTIFY_NEW_RENEWAL_2']}
-{MESSAGES['SERVER']}<a href='{server['url']}/admin'> {server['title']} </a>
-{MESSAGES['INFO_ID']} <code>{sub['id']}</code>""", reply_markup=notify_to_admin_markup(bot_user))
 
 
 def next_step_send_screenshot(message, charge_wallet):
@@ -318,25 +307,6 @@ def next_step_send_screenshot(message, charge_wallet):
     else:
         bot.send_message(message.chat.id, MESSAGES['UNKNOWN_ERROR'], reply_markup=main_menu_keyboard_markup())
         
-
-def next_step_answer_to_admin(message, admin_id):
-    if is_it_cancel(message): return
-    bot_users = USERS_DB.find_user(telegram_id=message.chat.id)
-    if bot_users: bot_user = bot_users[0]
-    admin_bot.send_message(int(admin_id), f"{MESSAGES['NEW_TICKET_RECEIVED']}\n{MESSAGES['TICKET_TEXT']} {message.text}",
-                           reply_markup=answer_to_user_markup(bot_user,message.chat.id))
-    bot.send_message(message.chat.id, MESSAGES['SEND_TICKET_TO_ADMIN_RESPONSE'], reply_markup=main_menu_keyboard_markup())
-
-
-def next_step_send_ticket_to_admin(message):
-    if is_it_cancel(message): return
-    bot_users = USERS_DB.find_user(telegram_id=message.chat.id)
-    if bot_users: bot_user = bot_users[0]
-    for ADMIN in ADMINS_ID:
-        admin_bot.send_message(ADMIN, f"{MESSAGES['NEW_TICKET_RECEIVED']}\n{MESSAGES['TICKET_TEXT']} {message.text}",
-                               reply_markup=answer_to_user_markup(bot_user,message.chat.id))
-    bot.send_message(message.chat.id, MESSAGES['SEND_TICKET_TO_ADMIN_RESPONSE'], reply_markup=main_menu_keyboard_markup())
-
 
 def next_step_send_name_for_buy_from_wallet(message: Message, plan):
     if is_it_cancel(message): return
@@ -402,16 +372,6 @@ def next_step_send_name_for_buy_from_wallet(message: Message, plan):
     else:
         bot.send_message(message.chat.id, caption_text, reply_markup=user_info_markup(user_info['uuid']))
 
-    BASE_URL_PANEL = urlparse(server['url']).scheme + "://" + urlparse(server['url']).netloc
-    link = f"{BASE_URL_PANEL}/{urlparse(server['url']).path.split('/')[1]}/{value}/"
-    user_name = f"<a href='{link}'> {name} </a>"
-    bot_users = USERS_DB.find_user(telegram_id=message.chat.id)
-    if bot_users: bot_user = bot_users[0]
-    for ADMIN in ADMINS_ID:
-        admin_bot.send_message(ADMIN, f"""{MESSAGES['ADMIN_NOTIFY_NEW_SUB']} {user_name} {MESSAGES['ADMIN_NOTIFY_CONFIRM']}
-{MESSAGES['SERVER']}<a href='{server['url']}/admin'> {server['title']} </a>
-{MESSAGES['INFO_ID']} <code>{sub_id}</code>""", reply_markup=notify_to_admin_markup(bot_user))
-
 
 def next_step_send_name_for_get_free_test(message: Message, server_id):
     if is_it_cancel(message): return
@@ -460,17 +420,6 @@ def next_step_send_name_for_get_free_test(message: Message, server_id):
         bot.send_photo(message.chat.id, photo=qr_code, caption=caption_text, reply_markup=user_info_markup(user_info['uuid']))
     else:
         bot.send_message(message.chat.id, caption_text, reply_markup=user_info_markup(user_info['uuid']))
-
-    BASE_URL_PANEL = urlparse(server['url']).scheme + "://" + urlparse(server['url']).netloc
-    link = f"{BASE_URL_PANEL}/{urlparse(server['url']).path.split('/')[1]}/{uuid}/"
-    user_name = f"<a href='{link}'> {name} </a>"
-    bot_users = USERS_DB.find_user(telegram_id=message.chat.id)
-    if bot_users: bot_user = bot_users[0]
-    for ADMIN in ADMINS_ID:
-        admin_bot.send_message(ADMIN, f"""{MESSAGES['ADMIN_NOTIFY_NEW_FREE_TEST']} {user_name} {MESSAGES['ADMIN_NOTIFY_CONFIRM']}
-{MESSAGES['SERVER']}<a href='{server['url']}/admin'> {server['title']} </a>
-{MESSAGES['INFO_ID']} <code>{non_order_id}</code>""", reply_markup=notify_to_admin_markup(bot_user))
-
 
 def next_step_to_qr(message: Message):
     if is_it_cancel(message): return
@@ -713,15 +662,6 @@ def callback_query(call: CallbackQuery):
         bot.send_message(call.message.chat.id, MESSAGES['REQUEST_SEND_SCREENSHOT'])
         bot.register_next_step_handler(call.message, next_step_send_screenshot, charge_wallet)
 
-    elif key == 'answer_to_admin':
-        bot.send_message(call.message.chat.id, MESSAGES['ANSWER_TO_ADMIN'], reply_markup=cancel_markup())
-        bot.register_next_step_handler(call.message, next_step_answer_to_admin, value)
-
-    elif key == 'send_ticket_to_support':
-        bot.delete_message(call.message.chat.id,call.message.message_id)
-        bot.send_message(call.message.chat.id, MESSAGES['SEND_TICKET_TO_ADMIN'], reply_markup=cancel_markup())
-        bot.register_next_step_handler(call.message, next_step_send_ticket_to_admin)
-
     elif key == 'unlink_subscription':
         delete_status = USERS_DB.delete_non_order_subscription(uuid=value)
         if delete_status:
@@ -795,64 +735,17 @@ def callback_query(call: CallbackQuery):
         bot.delete_message(call.message.chat.id, call.message.message_id)
         bot.send_message(call.message.chat.id, MESSAGES['CANCEL_INCREASE_WALLET_BALANCE'], reply_markup=main_menu_keyboard_markup())
 
-    elif key == 'configs_list':
-        bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=sub_url_user_list_markup(value))
-
-    elif key == 'conf_dir':
-        sub = utils.sub_links(value)
-        if not sub:
-            bot.send_message(call.message.chat.id, MESSAGES['UNKNOWN_ERROR'])
-            return
-        configs = utils.sub_parse(sub['sub_link'])
-        if not configs:
-            bot.send_message(call.message.chat.id, MESSAGES['ERROR_CONFIG_NOT_FOUND'])
-            return
-        bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=sub_user_list_markup(value,configs))
-        
-    elif key == "conf_dir_vless":
-        sub = utils.sub_links(value)
-        if not sub:
-            bot.send_message(call.message.chat.id, MESSAGES['UNKNOWN_ERROR'])
-            return
-        configs = utils.sub_parse(sub['sub_link'])
-        if not configs or not configs['vless']:
-            bot.send_message(call.message.chat.id, MESSAGES['ERROR_CONFIG_NOT_FOUND'])
-            return
-        msgs = configs_template(configs['vless'])
-        for message in msgs:
-            if message: bot.send_message(call.message.chat.id, f"{message}", reply_markup=main_menu_keyboard_markup())
-            
-    elif key == "conf_dir_vmess":
-        sub = utils.sub_links(value)
-        if not sub:
-            bot.send_message(call.message.chat.id, MESSAGES['UNKNOWN_ERROR'])
-            return
-        configs = utils.sub_parse(sub['sub_link'])
-        if not configs or not configs['vmess']:
-            bot.send_message(call.message.chat.id, MESSAGES['ERROR_CONFIG_NOT_FOUND'])
-            return
-        msgs = configs_template(configs['vmess'])
-        for message in msgs:
-            if message: bot.send_message(call.message.chat.id, f"{message}", reply_markup=main_menu_keyboard_markup())
-            
-    elif key == "conf_dir_trojan":
-        sub = utils.sub_links(value)
-        if not sub:
-            bot.send_message(call.message.chat.id, MESSAGES['UNKNOWN_ERROR'])
-            return
-        configs = utils.sub_parse(sub['sub_link'])
-        if not configs or not configs['trojan']:
-            bot.send_message(call.message.chat.id, MESSAGES['ERROR_CONFIG_NOT_FOUND'])
-            return
-        msgs = configs_template(configs['trojan'])
-        for message in msgs:
-            if message: bot.send_message(call.message.chat.id, f"{message}", reply_markup=main_menu_keyboard_markup())
-
+    # -------------- Direct Config Subscription QR & Link --------------
     elif key == "conf_sub_url":
         sub_info = utils.find_order_subscription_by_uuid(value)
         if not sub_info:
-            bot.send_message(call.message.chat.id, MESSAGES['UNKNOWN_ERROR'])
-            return
+            non_order = USERS_DB.find_non_order_subscription(uuid=value)
+            if non_order:
+                sub_info = non_order[0]
+            else:
+                bot.send_message(call.message.chat.id, MESSAGES['UNKNOWN_ERROR'])
+                return
+                
         server = USERS_DB.find_server(id=sub_info['server_id'])
         if not server:
             bot.send_message(call.message.chat.id, MESSAGES['UNKNOWN_ERROR'])
@@ -873,76 +766,9 @@ def callback_query(call: CallbackQuery):
         if not qr_code:
             bot.send_message(call.message.chat.id, MESSAGES['UNKNOWN_ERROR'])
             return
-        bot.send_photo(call.message.chat.id, photo=qr_code, caption=f"{KEY_MARKUP['CONFIGS_SUB']}\n<code>{my_sub_link}</code>", reply_markup=main_menu_keyboard_markup())
+        bot.send_photo(call.message.chat.id, photo=qr_code, caption=f"🔗 لینک سابسکریپشن:\n<code>{my_sub_link}</code>", reply_markup=main_menu_keyboard_markup())
 
-    elif key == "conf_sub_url_b64":
-        sub = utils.sub_links(value)
-        if not sub:
-            bot.send_message(call.message.chat.id, MESSAGES['UNKNOWN_ERROR'])
-            return
-        qr_code = utils.txt_to_qr(sub['sub_link_b64'])
-        if not qr_code:
-            bot.send_message(call.message.chat.id, MESSAGES['UNKNOWN_ERROR'])
-            return
-        bot.send_photo(call.message.chat.id, photo=qr_code, caption=f"{KEY_MARKUP['CONFIGS_SUB_B64']}\n<code>{sub['sub_link_b64']}</code>", reply_markup=main_menu_keyboard_markup())
-        
-    elif key == "conf_clash":
-        sub = utils.sub_links(value)
-        if not sub:
-            bot.send_message(call.message.chat.id, MESSAGES['UNKNOWN_ERROR'])
-            return
-        qr_code = utils.txt_to_qr(sub['clash_configs'])
-        if not qr_code:
-            bot.send_message(call.message.chat.id, MESSAGES['UNKNOWN_ERROR'])
-            return
-        bot.send_photo(call.message.chat.id, photo=qr_code, caption=f"{KEY_MARKUP['CONFIGS_CLASH']}\n<code>{sub['clash_configs']}</code>", reply_markup=main_menu_keyboard_markup())
-        
-    elif key == "conf_hiddify":
-        sub = utils.sub_links(value)
-        if not sub:
-            bot.send_message(call.message.chat.id, MESSAGES['UNKNOWN_ERROR'])
-            return
-        qr_code = utils.txt_to_qr(sub['hiddify_configs'])
-        if not qr_code:
-            bot.send_message(call.message.chat.id, MESSAGES['UNKNOWN_ERROR'])
-            return
-        bot.send_photo(call.message.chat.id, photo=qr_code, caption=f"{KEY_MARKUP['CONFIGS_HIDDIFY']}\n<code>{sub['hiddify_configs']}</code>", reply_markup=main_menu_keyboard_markup())
-
-    elif key == "conf_sub_sing_box":
-        sub = utils.sub_links(value)
-        if not sub:
-            bot.send_message(call.message.chat.id, MESSAGES['UNKNOWN_ERROR'])
-            return
-        qr_code = utils.txt_to_qr(sub['sing_box'])
-        if not qr_code:
-            bot.send_message(call.message.chat.id, MESSAGES['UNKNOWN_ERROR'])
-            return
-        bot.send_photo(call.message.chat.id, photo=qr_code, caption=f"{KEY_MARKUP['CONFIGS_SING_BOX']}\n<code>{sub['sing_box']}</code>", reply_markup=main_menu_keyboard_markup())
-
-    elif key == "conf_sub_full_sing_box":
-        sub = utils.sub_links(value)
-        if not sub:
-            bot.send_message(call.message.chat.id, MESSAGES['UNKNOWN_ERROR'])
-            return
-        qr_code = utils.txt_to_qr(sub['sing_box_full'])
-        if not qr_code:
-            bot.send_message(call.message.chat.id, MESSAGES['UNKNOWN_ERROR'])
-            return
-        bot.send_photo(call.message.chat.id, photo=qr_code, caption=f"{KEY_MARKUP['CONFIGS_FULL_SING_BOX']}\n<code>{sub['sing_box_full']}</code>", reply_markup=main_menu_keyboard_markup())
-
-    elif key == "msg_manual":
-        settings = utils.all_configs_settings()
-        android_msg = settings['msg_manual_android'] if settings['msg_manual_android'] else MESSAGES['MANUAL_ANDROID']
-        ios_msg = settings['msg_manual_ios'] if settings['msg_manual_ios'] else MESSAGES['MANUAL_IOS']
-        win_msg = settings['msg_manual_windows'] if settings['msg_manual_windows'] else MESSAGES['MANUAL_WIN']
-        mac_msg = settings['msg_manual_mac'] if settings['msg_manual_mac'] else MESSAGES['MANUAL_MAC']
-        linux_msg = settings['msg_manual_linux'] if settings['msg_manual_linux'] else MESSAGES['MANUAL_LIN']
-        if value == 'android': bot.send_message(call.message.chat.id, android_msg, reply_markup=main_menu_keyboard_markup())
-        elif value == 'ios': bot.send_message(call.message.chat.id, ios_msg, reply_markup=main_menu_keyboard_markup())
-        elif value == 'win': bot.send_message(call.message.chat.id, win_msg, reply_markup=main_menu_keyboard_markup())
-        elif value == 'mac': bot.send_message(call.message.chat.id, mac_msg, reply_markup=main_menu_keyboard_markup())
-        elif value == 'lin': bot.send_message(call.message.chat.id, linux_msg, reply_markup=main_menu_keyboard_markup())
-
+    # Other Callbacks (Back/Pagination)
     elif key == "back_to_user_panel":
         bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=user_info_markup(value))
         
@@ -1094,8 +920,12 @@ def send_ticket(message: Message):
     support_username = settings.get('support_username', '-')
     if not support_username: support_username = "-"
     
-    support_msg = f"📞 پشتیبانی تلگرام: {support_username}\n\nجهت ارسال پیام/تیکت از طریق ربات از دکمه زیر استفاده کنید:"
-    bot.send_message(message.chat.id, support_msg, reply_markup=send_ticket_to_admin())
+    support_msg = f"جهت ارسال پیام به پشتیبانی به آی دی تلگرام زیر پیام بدهید:\n{support_username}"
+    
+    markup = telebot.types.InlineKeyboardMarkup()
+    markup.add(telebot.types.InlineKeyboardButton(KEY_MARKUP.get('BACK', 'برگشت'), callback_data="del_msg:None"))
+    
+    bot.send_message(message.chat.id, support_msg, reply_markup=markup)
 
 
 @bot.message_handler(func=lambda message: message.text == KEY_MARKUP['LINK_SUBSCRIPTION'])
@@ -1173,11 +1003,9 @@ def start():
         if e.result.status_code == 401:
             logging.error("Invalid Telegram Bot Token!")
             exit(1)
-    for admin in ADMINS_ID:
-        try:
-            bot.send_message(admin, MESSAGES['WELCOME_TO_ADMIN'])
-        except Exception as e:
-            logging.warning(f"Error in send message to admin {admin}: {e}")
+            
+    # Welcome message on restart was removed for cleaner updates
+    
     bot.enable_save_next_step_handlers()
     bot.load_next_step_handlers()
     bot.infinity_polling()

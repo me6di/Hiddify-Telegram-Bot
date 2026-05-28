@@ -5,7 +5,6 @@ from UserBot.content import KEY_MARKUP, MESSAGES
 from Utils.utils import rial_to_toman, all_configs_settings
 from Utils.api import *
 
-# Main Menu Reply Keyboard Markup
 def main_menu_keyboard_markup():
     markup = ReplyKeyboardMarkup(row_width=3, resize_keyboard=True)
     markup.add(KeyboardButton(KEY_MARKUP['SUBSCRIPTION_STATUS']))
@@ -13,7 +12,6 @@ def main_menu_keyboard_markup():
     
     settings = all_configs_settings()
     
-    # Hide Free Test button if disabled by Admin
     if settings.get('test_subscription', False):
         markup.add(KeyboardButton(KEY_MARKUP['FREE_TEST']), KeyboardButton(KEY_MARKUP['WALLET']))
     else:
@@ -27,71 +25,25 @@ def main_menu_keyboard_markup():
                    KeyboardButton(KEY_MARKUP['MANUAL']))
     return markup
 
-
 def user_info_markup(uuid):
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
-    markup.add(InlineKeyboardButton(KEY_MARKUP['CONFIGS_LIST'], callback_data=f"configs_list:{uuid}"))
+    # تغییر نام به دریافت مستقیم لینک 
+    markup.add(InlineKeyboardButton("🔗 دریافت لینک سابسکریپشن", callback_data=f"conf_sub_url:{uuid}"))
     markup.add(InlineKeyboardButton(KEY_MARKUP['RENEWAL_SUBSCRIPTION'], callback_data=f"renewal_subscription:{uuid}"))
-    markup.add(
-        InlineKeyboardButton(KEY_MARKUP['UPDATE_SUBSCRIPTION_INFO'], callback_data=f"update_info_subscription:{uuid}"))
-    markup.add(InlineKeyboardButton(KEY_MARKUP['BACK'], callback_data="user_sub_page:1"))
-    return markup
-
-
-# Subscription URL Inline Keyboard Markup
-def sub_url_user_list_markup(uuid):
-    markup = InlineKeyboardMarkup()
-    markup.row_width = 2
-    settings = all_configs_settings()
-    if settings.get('visible_conf_dir', False):
-        markup.add(InlineKeyboardButton(KEY_MARKUP['CONFIGS_DIR'], callback_data=f"conf_dir:{uuid}"))
-    
-    # Auto Subscription Button Removed Here As Requested
-    
-    if settings.get('visible_conf_sub_url', False):
-        markup.add(InlineKeyboardButton(KEY_MARKUP['CONFIGS_SUB'], callback_data=f"conf_sub_url:{uuid}"))
-    if settings.get('visible_conf_sub_url_b64', False):
-        markup.add(InlineKeyboardButton(KEY_MARKUP['CONFIGS_SUB_B64'], callback_data=f"conf_sub_url_b64:{uuid}"))
-    if settings.get('visible_conf_clash', False):
-        markup.add(InlineKeyboardButton(KEY_MARKUP['CONFIGS_CLASH'], callback_data=f"conf_clash:{uuid}"))
-    if settings.get('visible_conf_hiddify', False):
-        markup.add(InlineKeyboardButton(KEY_MARKUP['CONFIGS_HIDDIFY'], callback_data=f"conf_hiddify:{uuid}"))
-    if settings.get('visible_conf_sub_sing_box', False):
-        markup.add(InlineKeyboardButton(KEY_MARKUP['CONFIGS_SING_BOX'], callback_data=f"conf_sub_sing_box:{uuid}"))
-    if settings.get('visible_conf_sub_full_sing_box', False):
-        markup.add(InlineKeyboardButton(KEY_MARKUP['CONFIGS_FULL_SING_BOX'],
-                                        callback_data=f"conf_sub_full_sing_box:{uuid}"))
-
-    markup.add(InlineKeyboardButton(KEY_MARKUP['BACK'], callback_data=f"back_to_user_panel:{uuid}"))
-
-    return markup
-
-# Subscription Configs Inline Keyboard Markup
-def sub_user_list_markup(uuid, configs):
-    markup = InlineKeyboardMarkup()
-    markup.row_width = 1
-    if configs['vless']:
-        markup.add(InlineKeyboardButton('Vless', callback_data=f"conf_dir_vless:{uuid}"))
-    if configs['vmess']:
-        markup.add(InlineKeyboardButton('Vmess', callback_data=f"conf_dir_vmess:{uuid}"))
-    if configs['trojan']:
-        markup.add(InlineKeyboardButton('Trojan', callback_data=f"conf_dir_trojan:{uuid}"))
-    markup.add(InlineKeyboardButton(KEY_MARKUP['BACK'], callback_data=f"back_to_user_panel:{uuid}"))
-
+    markup.add(InlineKeyboardButton(KEY_MARKUP['UPDATE_SUBSCRIPTION_INFO'], callback_data=f"update_info_subscription:{uuid}"))
+    markup.add(InlineKeyboardButton(KEY_MARKUP.get('BACK', 'برگشت'), callback_data="user_sub_page:1"))
     return markup
 
 def user_info_non_sub_markup(uuid):
     markup = InlineKeyboardMarkup()
     markup.row_width = 2
-    markup.add(InlineKeyboardButton(KEY_MARKUP['CONFIGS_LIST'], callback_data=f"configs_list:{uuid}"))
+    markup.add(InlineKeyboardButton("🔗 دریافت لینک سابسکریپشن", callback_data=f"conf_sub_url:{uuid}"))
     markup.add(InlineKeyboardButton(KEY_MARKUP['RENEWAL_SUBSCRIPTION'], callback_data=f"renewal_subscription:{uuid}"))
-    markup.add(
-        InlineKeyboardButton(KEY_MARKUP['UPDATE_SUBSCRIPTION_INFO'], callback_data=f"update_info_subscription:{uuid}"))
+    markup.add(InlineKeyboardButton(KEY_MARKUP['UPDATE_SUBSCRIPTION_INFO'], callback_data=f"update_info_subscription:{uuid}"))
     markup.add(InlineKeyboardButton(KEY_MARKUP['UNLINK_SUBSCRIPTION'], callback_data=f"unlink_subscription:{uuid}"))
-    markup.add(InlineKeyboardButton(KEY_MARKUP['BACK'], callback_data="user_sub_page:1"))
+    markup.add(InlineKeyboardButton(KEY_MARKUP.get('BACK', 'برگشت'), callback_data="user_sub_page:1"))
     return markup
-
 
 def confirm_subscription_markup(uuid):
     markup = InlineKeyboardMarkup()
@@ -100,18 +52,16 @@ def confirm_subscription_markup(uuid):
     markup.add(InlineKeyboardButton(KEY_MARKUP['NO'], callback_data=f"cancel_subscription:{uuid}"))
     return markup
 
-
 def confirm_buy_plan_markup(plan_id, renewal=False, uuid=None):
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
     callback = "confirm_buy_from_wallet" if not renewal else "confirm_renewal_from_wallet"
     markup.add(InlineKeyboardButton(KEY_MARKUP['BUY_FROM_WALLET'], callback_data=f"{callback}:{plan_id}"))
     if renewal:
-        markup.add(InlineKeyboardButton(KEY_MARKUP['BACK'], callback_data=f"back_to_renewal_plans:{uuid}"))
+        markup.add(InlineKeyboardButton(KEY_MARKUP.get('BACK', 'برگشت'), callback_data=f"back_to_renewal_plans:{uuid}"))
     else:
-        markup.add(InlineKeyboardButton(KEY_MARKUP['BACK'], callback_data=f"back_to_plans:None"))
+        markup.add(InlineKeyboardButton(KEY_MARKUP.get('BACK', 'برگشت'), callback_data=f"back_to_plans:None"))
     return markup
-
 
 def send_screenshot_markup(plan_id):
     markup = InlineKeyboardMarkup()
@@ -119,7 +69,6 @@ def send_screenshot_markup(plan_id):
     markup.add(InlineKeyboardButton(KEY_MARKUP['SEND_SCREENSHOT'], callback_data=f"send_screenshot:{plan_id}"))
     markup.add(InlineKeyboardButton(KEY_MARKUP['CANCEL'], callback_data=f"cancel_increase_wallet_balance:{plan_id}"))
     return markup
-
 
 def plans_list_markup(plans, renewal=False, uuid=None):
     markup = InlineKeyboardMarkup(row_width=1)
@@ -133,14 +82,12 @@ def plans_list_markup(plans, renewal=False, uuid=None):
     if len(keys) == 0:
         return None
     if renewal:
-        keys.append(InlineKeyboardButton(KEY_MARKUP['BACK'], callback_data=f"back_to_user_panel:{uuid}"))
+        keys.append(InlineKeyboardButton(KEY_MARKUP.get('BACK', 'برگشت'), callback_data=f"back_to_user_panel:{uuid}"))
     else:
-        keys.append(InlineKeyboardButton(KEY_MARKUP['BACK'], callback_data=f"back_to_servers:None"))
+        keys.append(InlineKeyboardButton(KEY_MARKUP.get('BACK', 'برگشت'), callback_data=f"back_to_servers:None"))
     markup.add(*keys)
     return markup
 
-
-# Server List - Server List - Inline Keyboard Markup
 def servers_list_markup(servers, free_test=False):
     markup = InlineKeyboardMarkup(row_width=1)
     callback = "free_test_server_selected" if free_test else "server_selected"
@@ -149,46 +96,10 @@ def servers_list_markup(servers, free_test=False):
         for server in servers:
             server_title = server[0]['title'] if server[1] else f"{server[0]['title']}⛔️"
             callback_2 = f"{server[0]['id']}" if server[1] else "False"
-            keys.append(InlineKeyboardButton(f"{server_title}",
-                                             callback_data=f"{callback}:{callback_2}"))
-        keys.append(InlineKeyboardButton(KEY_MARKUP['BACK'], callback_data=f"del_msg:None"))
-    if len(keys) == 0:
-        return None
+            keys.append(InlineKeyboardButton(f"{server_title}", callback_data=f"{callback}:{callback_2}"))
+        keys.append(InlineKeyboardButton(KEY_MARKUP.get('BACK', 'برگشت'), callback_data=f"del_msg:None"))
+    if len(keys) == 0: return None
     markup.add(*keys)
-    return markup
-
-def confirm_payment_by_admin(order_id):
-    markup = InlineKeyboardMarkup()
-    markup.row_width = 1
-    markup.add(
-        InlineKeyboardButton(KEY_MARKUP['CONFIRM_PAYMENT'], callback_data=f"confirm_payment_by_admin:{order_id}"))
-    markup.add(InlineKeyboardButton(KEY_MARKUP['NO'], callback_data=f"cancel_payment_by_admin:{order_id}"))
-    markup.add(InlineKeyboardButton(KEY_MARKUP['SEND_MESSAGE'], callback_data=f"send_message_by_admin:{order_id}"))
-    return markup
-
-def notify_to_admin_markup(user):
-    name = user['full_name'] if user['full_name'] else user['telegram_id']
-    markup = InlineKeyboardMarkup()
-    markup.row_width = 1
-    markup.add(InlineKeyboardButton(f"{name}", callback_data=f"bot_user_info:{user['telegram_id']}"))
-    return markup
-
-def send_ticket_to_admin():
-    markup = InlineKeyboardMarkup()
-    markup.row_width = 1
-    markup.add(
-        InlineKeyboardButton(KEY_MARKUP['SEND_TICKET_TO_SUPPORT'], callback_data=f"send_ticket_to_support:None"))
-    markup.add(
-        InlineKeyboardButton(KEY_MARKUP['CANCEL'], callback_data=f"del_msg:None"))
-    
-    return markup
-
-def answer_to_user_markup(user, user_id):
-    markup = InlineKeyboardMarkup()
-    markup.row_width = 1
-    name = user['full_name'] if user['full_name'] else user['telegram_id']
-    markup.add(InlineKeyboardButton(f"{name}", callback_data=f"bot_user_info:{user['telegram_id']}"))
-    markup.add(InlineKeyboardButton(KEY_MARKUP['ANSWER'], callback_data=f"users_bot_send_message_by_admin:{user_id}"))
     return markup
 
 def cancel_markup():
@@ -199,46 +110,34 @@ def cancel_markup():
 def wallet_info_markup():
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
-    markup.add(
-        InlineKeyboardButton(KEY_MARKUP['INCREASE_WALLET_BALANCE'], callback_data=f"increase_wallet_balance:wallet"))
+    markup.add(InlineKeyboardButton(KEY_MARKUP['INCREASE_WALLET_BALANCE'], callback_data=f"increase_wallet_balance:wallet"))
     return markup
 
 def wallet_info_specific_markup(amount):
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
-    markup.add(
-        InlineKeyboardButton(KEY_MARKUP['INCREASE_WALLET_BALANCE'], callback_data=f"increase_wallet_balance_specific:{amount}"))
+    markup.add(InlineKeyboardButton(KEY_MARKUP['INCREASE_WALLET_BALANCE'], callback_data=f"increase_wallet_balance_specific:{amount}"))
     return markup
 
 def force_join_channel_markup(channel_id):
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
     channel_id = channel_id.replace("@", "")
-    markup.add(
-        InlineKeyboardButton(KEY_MARKUP['JOIN_CHANNEL'], url=f"https://t.me/{channel_id}",)
-    )
-    markup.add(
-        InlineKeyboardButton(KEY_MARKUP['FORCE_JOIN_CHANNEL_ACCEPTED'], callback_data=f"force_join_status:None")
-    )
+    markup.add(InlineKeyboardButton(KEY_MARKUP['JOIN_CHANNEL'], url=f"https://t.me/{channel_id}"))
+    markup.add(InlineKeyboardButton(KEY_MARKUP['FORCE_JOIN_CHANNEL_ACCEPTED'], callback_data=f"force_join_status:None"))
     return markup
 
 def users_bot_management_settings_panel_manual_markup():
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
-    markup.add(InlineKeyboardButton(KEY_MARKUP['MANUAL_ANDROID'],
-                                    callback_data=f"msg_manual:android"))
-    markup.add(InlineKeyboardButton(KEY_MARKUP['MANUAL_IOS'],
-                                    callback_data=f"msg_manual:ios"))
-    markup.add(InlineKeyboardButton(KEY_MARKUP['MANUAL_WIN'],
-                                    callback_data=f"msg_manual:win"))
-    markup.add(InlineKeyboardButton(KEY_MARKUP['MANUAL_MAC'],
-                                    callback_data=f"msg_manual:mac"))
-    markup.add(InlineKeyboardButton(KEY_MARKUP['MANUAL_LIN'],
-                                    callback_data=f"msg_manual:lin"))
-    markup.add(InlineKeyboardButton(KEY_MARKUP['BACK'], callback_data=f"del_msg:None"))
+    markup.add(InlineKeyboardButton(KEY_MARKUP['MANUAL_ANDROID'], callback_data=f"msg_manual:android"))
+    markup.add(InlineKeyboardButton(KEY_MARKUP['MANUAL_IOS'], callback_data=f"msg_manual:ios"))
+    markup.add(InlineKeyboardButton(KEY_MARKUP['MANUAL_WIN'], callback_data=f"msg_manual:win"))
+    markup.add(InlineKeyboardButton(KEY_MARKUP['MANUAL_MAC'], callback_data=f"msg_manual:mac"))
+    markup.add(InlineKeyboardButton(KEY_MARKUP['MANUAL_LIN'], callback_data=f"msg_manual:lin"))
+    markup.add(InlineKeyboardButton(KEY_MARKUP.get('BACK', 'برگشت'), callback_data=f"del_msg:None"))
     return markup
 
-# ----------------- New Markups For Compressed Subscription List -----------------
 def user_subscriptions_list_markup(subs, page=1):
     markup = InlineKeyboardMarkup(row_width=2)
     PER_PAGE = 20
@@ -248,7 +147,6 @@ def user_subscriptions_list_markup(subs, page=1):
     
     for sub in subs[start:end]:
         name = sub.get('name', 'User') or 'User'
-        # Truncate long names to save space
         if len(name) > 15: name = name[:15] + ".."
         keys.append(InlineKeyboardButton(f"👤 {name}", callback_data=f"user_sub_info:{sub['uuid']}"))
     
@@ -266,5 +164,5 @@ def user_subscriptions_list_markup(subs, page=1):
         InlineKeyboardButton("🔍 با نام", callback_data="user_sub_search_name:None"),
         InlineKeyboardButton("🔍 با UUID", callback_data="user_sub_search_uuid:None")
     )
-    markup.add(InlineKeyboardButton(KEY_MARKUP['BACK'], callback_data=f"del_msg:None"))
+    markup.add(InlineKeyboardButton(KEY_MARKUP.get('BACK', 'برگشت'), callback_data=f"del_msg:None"))
     return markup
