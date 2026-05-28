@@ -59,7 +59,7 @@ function reinstall_bot() {
       rm -rf /opt/Hiddify-Telegram-Bot
 
       # Run the installation script
-      bash -c "$(curl -Lfo- https://raw.githubusercontent.com/B3H1Z/Hiddify-Telegram-Bot/main/install.sh)"
+      bash -c "$(curl -Lfo- https://raw.githubusercontent.com/me6di/Hiddify-Telegram-Bot/main/install.sh)"
 
       display_message "${GREEN}Bot has been reinstalled.${RESET}"
       ;;
@@ -91,12 +91,12 @@ function update_bot() {
   display_message "${GREEN}Updating the bot...${RESET}"
   git stash
   if git pull origin "$branch"; then
-    pip install -r requirements.txt || display_error_and_exit "Failed to install requirements."
+    pip install --break-system-packages -r requirements.txt || display_error_and_exit "Failed to install requirements."
     nohup python3 hiddifyTelegramBot.py >>bot.log 2>&1 &
     display_message "${GREEN}Bot has been updated and restarted.${RESET}"
   else
     if git pull --rebase origin "$branch"; then
-      pip install -r requirements.txt || display_error_and_exit "Failed to install requirements."
+      pip install --break-system-packages -r requirements.txt || display_error_and_exit "Failed to install requirements."
       > $install_dir/bot.log
       nohup python3 hiddifyTelegramBot.py >>bot.log 2>&1 &
       display_message "${GREEN}Bot has been updated and restarted.${RESET}"
