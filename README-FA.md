@@ -24,27 +24,31 @@
 با استفاده از این ربات می‌توانید پنل هیدیفای خود را از طریق تلگرام مدیریت کنید. این نسخه، فورک بهینه‌شده‌ای است که مشکلات نصب در سرورهای جدید را برطرف کرده و قابلیت تفکیک لینک ادمین از لینک سابسکریپشن را به همراه ویژگی‌های جدید ارائه می‌دهد.
 
 بعضی از ویژگی‌ها عبارتند از:
--  مدیریت چند پنل
--  فروش کانفیگ
--  افزودن، حذف و ویرایش کاربران
--  نمایش لیست کاربران و جستجو (بر اساس نام، تنظیمات، UUID)
--  نمایش اطلاعات کاربران (نام، ترافیک، تاریخ و غیره)
--  **[جدید]** نمایش پیکربندی‌ها و لینک‌های اشتراک کاربر همراه با تولید خودکار QR Code و پسوند دلخواه (`#name`)
--  دریافت پشتیبان از پنل شما
--  نمایش وضعیت سرور (رم، پردازنده، دیسک)
--  **[جدید]** امکان ثبت لینک مجزا برای اتصال API ادمین و لینک سابسکریپشن کاربران
+
+- مدیریت چند پنل
+- فروش کانفیگ
+- افزودن، حذف و ویرایش کاربران
+- نمایش لیست کاربران و جستجو (بر اساس نام، تنظیمات، UUID)
+- نمایش اطلاعات کاربران (نام، ترافیک، تاریخ و غیره)
+- **[جدید]** نمایش پیکربندی‌ها و لینک‌های اشتراک کاربر همراه با تولید خودکار QR Code و پسوند دلخواه (`#name`)
+- دریافت پشتیبان از پنل شما
+- نمایش وضعیت سرور (رم، پردازنده، دیسک)
+- **[جدید]** امکان ثبت لینک مجزا برای اتصال API ادمین و لینک سابسکریپشن کاربران
 - چند زبانه (انگلیسی، فارسی)
 - ربات مجزای کاربران
 
-## نصب 
+## نصب
+
 برای نصب ربات دستور زیر را اجرا کنید:
- 
+
 ```bash
-sudo bash -c "$(curl -Lfo- [https://raw.githubusercontent.com/me6di/Hiddify-Telegram-Bot/main/install.sh](https://raw.githubusercontent.com/me6di/Hiddify-Telegram-Bot/main/install.sh))"
+sudo bash -c "$(curl -Lfo- https://raw.githubusercontent.com/me6di/Hiddify-Telegram-Bot/main/install.sh)"
 ```
+
 <br>
 
 مطمئن شوید که اطلاعات زیر را آماده دارید:
+
 1. `شناسه تلگرام ادمین` : آن را از ربات[ User Info Bot](https://t.me/userinfobot) بگیرید (مثال: `123456789`)
 2. `توکن ربات ادمین` : آن را از ربات [BotFather](https://t.me/BotFather) بگیرید (مثال: `1234567890:ABCdEfGhIjKlMnOpQrStUvWxYz`)
 3. `توکن ربات کاربران` : آن را از ربات [BotFather](https://t.me/BotFather) بگیرید (مثال: `1234567890:ABCdEfGhIjKlMnOpQrStUvWxYz`)
@@ -54,52 +58,61 @@ sudo bash -c "$(curl -Lfo- [https://raw.githubusercontent.com/me6di/Hiddify-Tele
 
 حالا می‌توانید با ارسال دستور `/start` از ربات در تلگرام استفاده کنید.
 
-
 ## دستورات
 
 - ### به‌روزرسانی ربات
+
 ```bash
-cd /opt/Hiddify-Telegram-Bot/ && curl -fsSL -o /opt/Hiddify-Telegram-Bot/update.sh [https://raw.githubusercontent.com/me6di/Hiddify-Telegram-Bot/main/update.sh](https://raw.githubusercontent.com/me6di/Hiddify-Telegram-Bot/main/update.sh) && chmod +x /opt/Hiddify-Telegram-Bot/update.sh && bash /opt/Hiddify-Telegram-Bot/update.sh
+cd /opt/Hiddify-Telegram-Bot/ && curl -fsSL -o /opt/Hiddify-Telegram-Bot/update.sh https://raw.githubusercontent.com/me6di/Hiddify-Telegram-Bot/main/update.sh && chmod +x /opt/Hiddify-Telegram-Bot/update.sh && bash /opt/Hiddify-Telegram-Bot/update.sh
 ```
 
 - ### راه‌اندازی مجدد ربات
+
 ```bash
 cd /opt/Hiddify-Telegram-Bot/ && chmod +x restart.sh && ./restart.sh
 ```
 
 - ### متوقف کردن ربات
+
 ```bash
 pkill -9 -f hiddifyTelegramBot.py
 ```
 
 - ### مشاهده لاگ های ربات
+
 ```bash
 cat /opt/Hiddify-Telegram-Bot/Logs/hidyBot.log
 ```
 
 - ### مشاهده و تغییر پیکربندی ربات
+
 ```bash
 cd /opt/Hiddify-Telegram-Bot/ && python3 config.py && chmod +x restart.sh && ./restart.sh
 ```
 
 - ### نصب مجدد ربات
+
 ```bash
-cd /opt/ && rm -rf /opt/Hiddify-Telegram-Bot/ && sudo bash -c "$(curl -Lfo- [https://raw.githubusercontent.com/me6di/Hiddify-Telegram-Bot/main/install.sh](https://raw.githubusercontent.com/me6di/Hiddify-Telegram-Bot/main/install.sh))"
+cd /opt/ && rm -rf /opt/Hiddify-Telegram-Bot/ && sudo bash -c "$(curl -Lfo- https://raw.githubusercontent.com/me6di/Hiddify-Telegram-Bot/main/install.sh)"
 ```
 
 - ### حذف ربات
+
 ```bash
 cd /opt/Hiddify-Telegram-Bot/ && chmod +x uninstall.sh && ./uninstall.sh
 ```
 
 ## اسکرین شات‌ها
-#### ربات کاربران 
+
+#### ربات کاربران
+
 - <img src="https://github.com/me6di/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-u-1.jpg?raw=true" width=35% height=35%>
 - <img src="https://github.com/me6di/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-u-2.jpg?raw=true" width=35% height=35%>
 - <img src="https://github.com/me6di/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-u-3.jpg?raw=true" width=35% height=35%>
 - <img src="https://github.com/me6di/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-u-4.jpg?raw=true" width=35% height=35%>
 
 #### ربات ادمین
+
 - <img src="https://github.com/me6di/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-a-1.jpg?raw=true" width=35% height=35%>
 - <img src="https://github.com/me6di/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-a-2.jpg?raw=true" width=35% height=35%>
 - <img src="https://github.com/me6di/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-a-6.jpg?raw=true" width=35% height=35%>
