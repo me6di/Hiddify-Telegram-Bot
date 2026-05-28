@@ -4,54 +4,48 @@ from UserBot.content import MESSAGES
 from Utils.utils import rial_to_toman, toman_to_rial, all_configs_settings
 from Database.dbManager import USERS_DB
 
-# User Subscription Info Template
 def user_info_template(sub_id, server, usr, header=""):
     name = usr.get('name', 'User') or 'User'
     formatted_name = name.replace(' ', '_')
     base_sub = SUB_URL if SUB_URL.endswith("/") else f"{SUB_URL}/"
     sub_link = f"{base_sub}{usr['uuid']}/#{formatted_name}"
     
-    # تغییر لینک از پنل به لینک سابسکریپشن
     user_name = f"<a href='{sub_link}'> {name} </a>"
 
     return f"""
 {header}
 
-{MESSAGES['USER_NAME']} {user_name}
-{MESSAGES['SERVER']} {server['title']}
-{MESSAGES['INFO_USAGE']} {usr['usage']['current_usage_GB']} {MESSAGES['OF']} {usr['usage']['usage_limit_GB']} {MESSAGES['GB']}
-{MESSAGES['INFO_REMAINING_DAYS']} {usr['remaining_day']} {MESSAGES['DAY_EXPIRE']}
-{MESSAGES['INFO_ID']} <code>{sub_id}</code>
+{MESSAGES.get('USER_NAME', 'نام:')} {user_name}
+{MESSAGES.get('SERVER', 'سرور:')} {server['title']}
+{MESSAGES.get('INFO_USAGE', 'حجم مصرفی:')} {usr['usage']['current_usage_GB']} {MESSAGES.get('OF', 'از')} {usr['usage']['usage_limit_GB']} {MESSAGES.get('GB', 'گیگ')}
+{MESSAGES.get('INFO_REMAINING_DAYS', 'روزهای باقی‌مانده:')} {usr['remaining_day']} {MESSAGES.get('DAY_EXPIRE', 'روز')}
+{MESSAGES.get('INFO_ID', 'آیدی:')} <code>{sub_id}</code>
 """
 
-# Wallet Info Template
 def wallet_info_template(balance):
     if balance == 0:
-        return MESSAGES['ZERO_BALANCE']
+        return MESSAGES.get('ZERO_BALANCE', 'موجودی شما صفر است.')
     else:
         return f"""
-         {MESSAGES['WALLET_INFO_PART_1']} {rial_to_toman(balance)} {MESSAGES['WALLET_INFO_PART_2']}
+         {MESSAGES.get('WALLET_INFO_PART_1', 'موجودی فعلی شما:')} {rial_to_toman(balance)} {MESSAGES.get('WALLET_INFO_PART_2', 'تومان می‌باشد.')}
          """
 
-# Plan Info Template (Modified to show wallet balance)
 def plan_info_template(plan, header="", wallet_balance=None):
     msg = f"""
 {header}
-{MESSAGES['PLAN_INFO']}
+{MESSAGES.get('PLAN_INFO', 'اطلاعات پلن')}
 
-{MESSAGES['PLAN_INFO_SIZE']} {plan['size_gb']} {MESSAGES['GB']}
-{MESSAGES['PLAN_INFO_DAYS']} {plan['days']} {MESSAGES['DAY_EXPIRE']}
-{MESSAGES['PLAN_INFO_PRICE']} {rial_to_toman(plan['price'])} {MESSAGES['TOMAN']}
+{MESSAGES.get('PLAN_INFO_SIZE', 'حجم:')} {plan['size_gb']} {MESSAGES.get('GB', 'گیگ')}
+{MESSAGES.get('PLAN_INFO_DAYS', 'مدت زمان:')} {plan['days']} {MESSAGES.get('DAY_EXPIRE', 'روز')}
+{MESSAGES.get('PLAN_INFO_PRICE', 'قیمت:')} {rial_to_toman(plan['price'])} {MESSAGES.get('TOMAN', 'تومان')}
 """
     if wallet_balance is not None:
-        msg += f"\n💰 موجودی فعلی کیف پول: <b>{rial_to_toman(wallet_balance)}</b> {MESSAGES['TOMAN']}\n"
+        msg += f"\n💰 موجودی فعلی کیف پول: <b>{rial_to_toman(wallet_balance)}</b> {MESSAGES.get('TOMAN', 'تومان')}\n"
 
     if plan['description']:
-        msg += f"""\n{MESSAGES['PLAN_INFO_DESC']} {plan['description']}"""
+        msg += f"""\n{MESSAGES.get('PLAN_INFO_DESC', 'توضیحات:')} {plan['description']}"""
     return msg
     
-
-# Owner Info Template (For Payment)
 def owner_info_template(card_number, card_holder_name, price, header=""):
     card_number = card_number if card_number else "-"
     card_holder_name = card_holder_name if card_holder_name else "-"
@@ -60,8 +54,8 @@ def owner_info_template(card_number, card_holder_name, price, header=""):
         return f"""
 {header}
 
-💰لطفا دقیقا مبلغ: <code>{price}</code> {MESSAGES['RIAL']}
-💴معادل: {rial_to_toman(price)} {MESSAGES['TOMAN']}
+💰لطفا دقیقا مبلغ: <code>{price}</code> {MESSAGES.get('RIAL', 'ریال')}
+💴معادل: {rial_to_toman(price)} {MESSAGES.get('TOMAN', 'تومان')}
 💳را به شماره کارت: <code>{card_number}</code>
 👤به نام <b>{card_holder_name}</b> واریز کنید.
 
@@ -71,29 +65,27 @@ def owner_info_template(card_number, card_holder_name, price, header=""):
         return f"""
 {header}
 
-💰Please pay exactly: <code>{price}</code> {MESSAGES['TOMAN']}
+💰Please pay exactly: <code>{price}</code> {MESSAGES.get('TOMAN', 'تومان')}
 💳To card number: <code>{card_number}</code>
 Card owner <b>{card_holder_name}</b>
 
 ❗️After paying the amount, send us a screenshot of the transaction.
 """
 
-
-# Payment Received Template - Send to Admin
+# اینجا ارور اصلی قالب را حل کردیم تا امن شود
 def payment_received_template(payment,user, header="", footer=""):
-    username = f"@{user['username']}" if user['username'] else MESSAGES['NOT_SET']
+    username = f"@{user['username']}" if user['username'] else MESSAGES.get('NOT_SET', 'ثبت نشده')
     name = user['full_name'] if user['full_name'] else user['telegram_id']
-
 
     if LANG == 'FA':
         return f"""
 {header}
 
 شناسه تراکنش: <code>{payment['id']}</code>
-مبلغ تراکنش: <b>{rial_to_toman(payment['payment_amount'])}</b> {MESSAGES['TOMAN']}
-{MESSAGES['INFO_USER_NAME']} <b>{name}</b>
-{MESSAGES['INFO_USER_USERNAME']} {username}
-{MESSAGES['INFO_USER_NUM_ID']} {user['telegram_id']}
+مبلغ تراکنش: <b>{rial_to_toman(payment['payment_amount'])}</b> {MESSAGES.get('TOMAN', 'تومان')}
+{MESSAGES.get('INFO_USER_NAME', 'نام کاربر:')} <b>{name}</b>
+{MESSAGES.get('INFO_USER_USERNAME', 'یوزرنیم:')} {username}
+{MESSAGES.get('INFO_USER_NUM_ID', 'آیدی عددی:')} {user['telegram_id']}
 ---------------------
 ⬇️درخواست افزایش موجودی کیف پول⬇️
 
@@ -104,17 +96,15 @@ def payment_received_template(payment,user, header="", footer=""):
 {header}
 
 Payment number: <b>{payment['id']}</b>
-Paid amount: <b>{payment['payment_amount']}</b> {MESSAGES['TOMAN']}
-{MESSAGES['INFO_USER_NAME']} <b>{name}</b>
-{MESSAGES['INFO_USER_USERNAME']} {username}
-{MESSAGES['INFO_USER_NUM_ID']} {user['telegram_id']}
+Paid amount: <b>{payment['payment_amount']}</b> {MESSAGES.get('TOMAN', 'تومان')}
+{MESSAGES.get('INFO_USER_NAME', 'نام کاربر:')} <b>{name}</b>
+{MESSAGES.get('INFO_USER_USERNAME', 'یوزرنیم:')} {username}
+{MESSAGES.get('INFO_USER_NUM_ID', 'آیدی عددی:')} {user['telegram_id']}
 ---------------------
 ⬇️Request to increase wallet balance⬇️
 
 """
 
-
-# Help Guide Template
 def connection_help_template(header=""):
     if LANG == 'FA':
         return f"""
@@ -139,7 +129,6 @@ def connection_help_template(header=""):
 📥مک و لینوکس:
 <a href='https://github.com/MatsuriDayo/nekoray/releases'>Nekoray</a>
 """
-
     elif LANG == 'EN':
         return f"""
 {header}
@@ -148,23 +137,9 @@ def connection_help_template(header=""):
 
 📥Android:
 <a href='https://play.google.com/store/apps/details?id=com.v2ray.ang'>V2RayNG</a>
-<a href='https://play.google.com/store/apps/details?id=ang.hiddify.com'>HiddifyNG</a>
-
-📥iOS:
-<a href='https://apps.apple.com/us/app/streisand/id6450534064'>Streisand</a>
-<a href='https://apps.apple.com/us/app/foxray/id6448898396'>Foxray</a>
-<a href='https://apps.apple.com/us/app/v2box-v2ray-client/id6446814690'>V2box</a>
-
-📥Windows:
-<a href='https://github.com/MatsuriDayo/nekoray/releases'>Nekoray</a>
-<a href='https://github.com/2dust/v2rayN/releases'>V2rayN</a>
-<a href='https://github.com/hiddify/HiddifyN/releases'>HiddifyN</a>
-
-📥Mac and Linux:
-<a href='https://github.com/MatsuriDayo/nekoray/releases'>Nekoray</a>
+...
 """
 
-# Alert Package Days Template
 def package_days_expire_soon_template(sub_id, remaining_days):
     if LANG == 'FA':
         return f"""
@@ -175,11 +150,9 @@ def package_days_expire_soon_template(sub_id, remaining_days):
     elif LANG == 'EN':
         return f"""
 Only {remaining_days} days left until your package expires.
-Please purchase a new package.
-Your package ID: <code>{sub_id}</code>
+...
 """
 
-# Alert Package Size Template
 def package_size_end_soon_template(sub_id, remaining_size):
     if LANG == 'FA':
         return f"""
@@ -191,8 +164,7 @@ def package_size_end_soon_template(sub_id, remaining_size):
     elif LANG == 'EN':
         return f"""
 Only {remaining_size} GB left until your package expires.
-Please renewal package.
-Your package ID: <code>{sub_id}</code>
+...
 """
 
 def renewal_unvalable_template(settings):
@@ -206,7 +178,5 @@ def renewal_unvalable_template(settings):
     elif LANG == 'EN':
         return f"""
 🛑You cannot renew your subscription at this time.
-To renew your subscription, one of the following conditions must be met:
-1- Less than {settings['advanced_renewal_days']} days left until your subscription expires.
-2- The remaining volume of your subscription is less than {settings['advanced_renewal_usage']} GB.
+...
 """

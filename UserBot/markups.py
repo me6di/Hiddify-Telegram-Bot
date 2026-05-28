@@ -7,7 +7,6 @@ from Utils.api import *
 
 def main_menu_keyboard_markup():
     markup = ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
-    # جابجایی دکمه خرید به بالا و حذف دکمه اتصال اشتراک
     markup.add(KeyboardButton(KEY_MARKUP['BUY_SUBSCRIPTION']))
     markup.add(KeyboardButton(KEY_MARKUP['SUBSCRIPTION_STATUS']))
     
@@ -29,7 +28,6 @@ def main_menu_keyboard_markup():
 def user_info_markup(uuid):
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
-    # تغییر نام به دریافت مستقیم لینک 
     markup.add(InlineKeyboardButton("🔗 دریافت لینک سابسکریپشن", callback_data=f"conf_sub_url:{uuid}"))
     markup.add(InlineKeyboardButton(KEY_MARKUP['RENEWAL_SUBSCRIPTION'], callback_data=f"renewal_subscription:{uuid}"))
     markup.add(InlineKeyboardButton(KEY_MARKUP['UPDATE_SUBSCRIPTION_INFO'], callback_data=f"update_info_subscription:{uuid}"))
@@ -78,7 +76,7 @@ def plans_list_markup(plans, renewal=False, uuid=None):
     for plan in plans:
         if plan['status']:
             keys.append(InlineKeyboardButton(
-                f"{plan['size_gb']}{MESSAGES['GB']} | {plan['days']}{MESSAGES['DAY_EXPIRE']} | {rial_to_toman(plan['price'])} {MESSAGES['TOMAN']}",
+                f"{plan['size_gb']}{MESSAGES.get('GB', 'گیگ')} | {plan['days']}{MESSAGES.get('DAY_EXPIRE', 'روز')} | {rial_to_toman(plan['price'])} {MESSAGES.get('TOMAN', 'تومان')}",
                 callback_data=f"{callback}:{plan['id']}"))
     if len(keys) == 0:
         return None
@@ -103,6 +101,40 @@ def servers_list_markup(servers, free_test=False):
     markup.add(*keys)
     return markup
 
+# اضافه شدن حالت ایمن برای کلیدهای ادمین (دلیل اصلی مشکل شما)
+def confirm_payment_by_admin(order_id):
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1
+    markup.add(
+        InlineKeyboardButton(KEY_MARKUP.get('CONFIRM_PAYMENT', '✅ تایید پرداخت'), callback_data=f"confirm_payment_by_admin:{order_id}"))
+    markup.add(InlineKeyboardButton(KEY_MARKUP.get('NO', '❌ رد تراکنش'), callback_data=f"cancel_payment_by_admin:{order_id}"))
+    markup.add(InlineKeyboardButton(KEY_MARKUP.get('SEND_MESSAGE', '✉️ ارسال پیام'), callback_data=f"send_message_by_admin:{order_id}"))
+    return markup
+
+def notify_to_admin_markup(user):
+    name = user['full_name'] if user['full_name'] else user['telegram_id']
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1
+    markup.add(InlineKeyboardButton(f"{name}", callback_data=f"bot_user_info:{user['telegram_id']}"))
+    return markup
+
+def send_ticket_to_admin():
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1
+    markup.add(
+        InlineKeyboardButton(KEY_MARKUP['SEND_TICKET_TO_SUPPORT'], callback_data=f"send_ticket_to_support:None"))
+    markup.add(
+        InlineKeyboardButton(KEY_MARKUP['CANCEL'], callback_data=f"del_msg:None"))
+    return markup
+
+def answer_to_user_markup(user, user_id):
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1
+    name = user['full_name'] if user['full_name'] else user['telegram_id']
+    markup.add(InlineKeyboardButton(f"{name}", callback_data=f"bot_user_info:{user['telegram_id']}"))
+    markup.add(InlineKeyboardButton(KEY_MARKUP['ANSWER'], callback_data=f"users_bot_send_message_by_admin:{user_id}"))
+    return markup
+
 def cancel_markup():
     markup = ReplyKeyboardMarkup(row_width=3, resize_keyboard=True)
     markup.add(KeyboardButton(KEY_MARKUP['CANCEL']))
@@ -114,11 +146,10 @@ def wallet_info_markup():
     markup.add(InlineKeyboardButton(KEY_MARKUP['INCREASE_WALLET_BALANCE'], callback_data=f"increase_wallet_balance:wallet"))
     return markup
 
-# اضافه شدن دو دکمه همزمان در صورت کمبود موجودی
 def wallet_info_specific_markup(amount):
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
-    markup.add(InlineKeyboardButton(f"💳 افزایش موجودی (دقیقاً {rial_to_toman(amount)} {MESSAGES['TOMAN']})", callback_data=f"increase_wallet_balance_specific:{amount}"))
+    markup.add(InlineKeyboardButton(f"💳 افزایش موجودی (دقیقاً {rial_to_toman(amount)} {MESSAGES.get('TOMAN', 'تومان')})", callback_data=f"increase_wallet_balance_specific:{amount}"))
     markup.add(InlineKeyboardButton("➕ افزایش موجودی (مبلغ دلخواه)", callback_data="increase_wallet_balance:wallet"))
     return markup
 
@@ -157,9 +188,9 @@ def user_subscriptions_list_markup(subs, page=1):
     
     nav_keys = []
     if page > 1:
-        nav_keys.append(InlineKeyboardButton(KEY_MARKUP['PREV_PAGE'], callback_data=f"user_sub_page:{page - 1}"))
+        nav_keys.append(InlineKeyboardButton(KEY_MARKUP.get('PREV_PAGE', 'قبلی'), callback_data=f"user_sub_page:{page - 1}"))
     if page < len(subs) / PER_PAGE:
-        nav_keys.append(InlineKeyboardButton(KEY_MARKUP['NEXT_PAGE'], callback_data=f"user_sub_page:{page + 1}"))
+        nav_keys.append(InlineKeyboardButton(KEY_MARKUP.get('NEXT_PAGE', 'بعدی'), callback_data=f"user_sub_page:{page + 1}"))
     if nav_keys:
         markup.add(*nav_keys)
         

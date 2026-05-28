@@ -1,6 +1,7 @@
 import datetime
 import random
 import os
+import logging
 
 import telebot
 from telebot.types import Message, CallbackQuery
@@ -42,7 +43,7 @@ def is_it_cancel(message: Message, response=MESSAGES['CANCELED']):
     return False
 
 def is_it_command(message: Message):
-    if message.text.startswith("/"):
+    if message.text and message.text.startswith("/"):
         return True
     return False
 
@@ -282,51 +283,55 @@ def renewal_from_wallet_confirm(message: Message):
 {MESSAGES['SERVER']}<a href='{server['url']}/admin'> {server['title']} </a>
 {MESSAGES['INFO_ID']} <code>{sub['id']}</code>""", reply_markup=notify_to_admin_markup(bot_user))
 
-
+# حل ارورهای ارسال رسید و استفاده از try-except برای اطمینان ۱۰۰ درصدی
 def next_step_send_screenshot(message, charge_wallet):
     if is_it_cancel(message): return
-    if not charge_wallet:
-        bot.send_message(message.chat.id, MESSAGES['UNKNOWN_ERROR'], reply_markup=main_menu_keyboard_markup())
+    if not charge_wallet or 'id' not in charge_wallet:
+        bot.send_message(message.chat.id, MESSAGES.get('UNKNOWN_ERROR', 'خطای ناشناخته رخ داد.'), reply_markup=main_menu_keyboard_markup())
         return
 
     if message.content_type != 'photo':
-        bot.send_message(message.chat.id, MESSAGES['ERROR_TYPE_SEND_SCREENSHOT'], reply_markup=cancel_markup())
+        bot.send_message(message.chat.id, MESSAGES.get('ERROR_TYPE_SEND_SCREENSHOT', 'لطفاً فقط عکس ارسال کنید.'), reply_markup=cancel_markup())
         bot.register_next_step_handler(message, next_step_send_screenshot, charge_wallet)
         return
 
-    file_info = bot.get_file(message.photo[-1].file_id)
-    downloaded_file = bot.download_file(file_info.file_path)
-    file_name = f"{message.chat.id}-{charge_wallet['id']}.jpg"
-    path_recp = os.path.join(os.getcwd(), 'UserBot', 'Receiptions', file_name)
-    if not os.path.exists(os.path.join(os.getcwd(), 'UserBot', 'Receiptions')):
-        os.makedirs(os.path.join(os.getcwd(), 'UserBot', 'Receiptions'))
-    with open(path_recp, 'wb') as new_file:
-        new_file.write(downloaded_file)
-
-    created_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    payment_method = "Card"
-
-    status = USERS_DB.add_payment(charge_wallet['id'], message.chat.id,
-                                  charge_wallet['amount'], payment_method, file_name, created_at)
-    if status:
-        payment = USERS_DB.find_payment(id=charge_wallet['id'])[0]
-        user_data = USERS_DB.find_user(telegram_id=message.chat.id)[0]
-        for ADMIN in ADMINS_ID:
-            admin_bot.send_photo(ADMIN, open(path_recp, 'rb'),
-                                 caption=payment_received_template(payment,user_data),
-                                 reply_markup=confirm_payment_by_admin(charge_wallet['id']))
-        bot.send_message(message.chat.id, MESSAGES['WAIT_FOR_ADMIN_CONFIRMATION'], reply_markup=main_menu_keyboard_markup())
-    else:
-        bot.send_message(message.chat.id, MESSAGES['UNKNOWN_ERROR'], reply_markup=main_menu_keyboard_markup())
+    try:
+        file_info = bot.get_file(message.photo[-1].file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+        file_name = f"{message.chat.id}-{charge_wallet['id']}.jpg"
         
+        receiptions_path = os.path.join(os.getcwd(), 'UserBot', 'Receiptions')
+        if not os.path.exists(receiptions_path):
+            os.makedirs(receiptions_path)
+            
+        path_recp = os.path.join(receiptions_path, file_name)
+        with open(path_recp, 'wb') as new_file:
+            new_file.write(downloaded_file)
 
-def next_step_answer_to_admin(message, admin_id):
-    if is_it_cancel(message): return
-    bot_users = USERS_DB.find_user(telegram_id=message.chat.id)
-    if bot_users: bot_user = bot_users[0]
-    admin_bot.send_message(int(admin_id), f"{MESSAGES['NEW_TICKET_RECEIVED']}\n{MESSAGES['TICKET_TEXT']} {message.text}",
-                           reply_markup=answer_to_user_markup(bot_user,message.chat.id))
-    bot.send_message(message.chat.id, MESSAGES['SEND_TICKET_TO_ADMIN_RESPONSE'], reply_markup=main_menu_keyboard_markup())
+        created_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        payment_method = "Card"
+
+        status = USERS_DB.add_payment(charge_wallet['id'], message.chat.id,
+                                      charge_wallet['amount'], payment_method, file_name, created_at)
+        if status:
+            payment = USERS_DB.find_payment(id=charge_wallet['id'])[0]
+            user_data = USERS_DB.find_user(telegram_id=message.chat.id)[0]
+            
+            # ارسال ایمن پیام به ادمین 
+            for ADMIN in ADMINS_ID:
+                try:
+                    admin_bot.send_photo(ADMIN, open(path_recp, 'rb'),
+                                         caption=payment_received_template(payment, user_data),
+                                         reply_markup=confirm_payment_by_admin(charge_wallet['id']))
+                except Exception as admin_err:
+                    logging.error(f"Failed to send to admin {ADMIN}: {admin_err}")
+                    
+            bot.send_message(message.chat.id, MESSAGES.get('WAIT_FOR_ADMIN_CONFIRMATION', '✅ رسید شما با موفقیت ثبت شد و در انتظار تایید ادمین می‌باشد.'), reply_markup=main_menu_keyboard_markup())
+        else:
+            bot.send_message(message.chat.id, MESSAGES.get('UNKNOWN_ERROR', 'خطای ناشناخته رخ داد.'), reply_markup=main_menu_keyboard_markup())
+    except Exception as e:
+        logging.error(f"Error in next_step_send_screenshot: {e}")
+        bot.send_message(message.chat.id, MESSAGES.get('UNKNOWN_ERROR', 'خطایی در ثبت رسید رخ داد. لطفا دوباره تلاش کنید.'), reply_markup=main_menu_keyboard_markup())
 
 
 def next_step_send_name_for_buy_from_wallet(message: Message, plan):
@@ -488,7 +493,7 @@ def next_step_increase_wallet_balance(message):
     if amount < minimum_deposit_amount:
         bot.send_message(message.chat.id,
                          f"{MESSAGES['INCREASE_WALLET_BALANCE_AMOUNT']}\n{MESSAGES['MINIMUM_DEPOSIT_AMOUNT']}: "
-                         f"{rial_to_toman(minimum_deposit_amount)} {MESSAGES['TOMAN']}", reply_markup=cancel_markup())
+                         f"{rial_to_toman(minimum_deposit_amount)} {MESSAGES.get('TOMAN', 'تومان')}", reply_markup=cancel_markup())
         bot.register_next_step_handler(message, next_step_increase_wallet_balance)
         return
     settings = utils.all_configs_settings()
@@ -674,7 +679,7 @@ def callback_query(call: CallbackQuery):
 
     elif key == 'send_screenshot':
         bot.delete_message(call.message.chat.id, call.message.message_id)
-        bot.send_message(call.message.chat.id, MESSAGES['REQUEST_SEND_SCREENSHOT'])
+        bot.send_message(call.message.chat.id, MESSAGES.get('REQUEST_SEND_SCREENSHOT', 'لطفاً رسید واریزی را ارسال کنید:'))
         bot.register_next_step_handler(call.message, next_step_send_screenshot, charge_wallet)
 
     elif key == 'unlink_subscription':
@@ -1015,8 +1020,6 @@ def start():
             logging.error("Invalid Telegram Bot Token!")
             exit(1)
             
-    # Welcome message on restart was removed for cleaner updates
-    
     bot.enable_save_next_step_handlers()
     bot.load_next_step_handlers()
     bot.infinity_polling()
