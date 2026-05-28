@@ -2491,8 +2491,7 @@ def callback_query(call: CallbackQuery):
 
 
    # ----------------------------------- Payment Callbacks -----------------------------------
-    # Payment - Confirm Payment Callback (هوشمند)
-    # Payment - Confirm Payment Callback (هوشمند و متصل به سیستم تخفیف جدید)
+   # Payment - Confirm Payment Callback (هوشمند و متصل به سیستم تخفیف جدید)
     elif key == "confirm_payment_by_admin":
         if not CLIENT_TOKEN:
             bot.send_message(call.message.chat.id, MESSAGES['ERROR_CLIENT_TOKEN'])
@@ -2504,134 +2503,64 @@ def callback_query(call: CallbackQuery):
             return
         payment_info = payment_info[0]
         if payment_info['approved'] is not None and payment_info['approved'] != 0:
-            bot.send_message(call.message.chat.id, f"⚠️ این تراکنش قبلاً بررسی شده است.\nشناسه: {payment_id}")
+            bot.send_message(call.message.chat.id, f"⚠️ این تراکنش قبلاً بررسی شده است.")
             return
         
         telegram_id = payment_info['telegram_id']
         method = payment_info['payment_method']
         
-        # فرمت متد پرداخت: Plan:ID|Wallet:مبلغ_شارژ|Code:نام_کد|Pay:مبلغ_پرداختی
-        virtual_add = payment_info['payment_amount'] 
+        virtual_add = payment_info['payment_amount']
         plan_id = None
         discount_code = "-"
         
         try:
             if "|" in method:
                 parts = method.split('|')
-                main_target = parts[0]
-                
                 for part in parts:
-                    if part.startswith("Code:"):
-                        discount_code = part.split(":")[1]
-                
-                if main_target.startswith("Wallet:"):
-                    virtual_add = int(main_target.split(":")[1])
-                elif main_target.startswith("Plan:"):
-                    plan_id = int(main_target.split(":")[1])
-                    plan_info = USERS_DB.find_plan(id=plan_id)[0]
-                    virtual_add = plan_info['price']
-            else:
-                if method.startswith("Wallet:"):
-                    virtual_add = int(method.split(":")[1])
-                elif method.startswith("Plan:"):
-                    plan_id = int(method.split(":")[1])
-                    plan_info = USERS_DB.find_plan(id=plan_id)[0]
-                    virtual_add = plan_info['price']
-        except Exception as parse_err:
-            logging.error(f"Error parsing payment method: {parse_err}")
+                    if part.startswith("Code:"): discount_code = part.split(":")[1]
+                if parts[0].startswith("Wallet:"): virtual_add = int(parts[0].split(":")[1])
+                elif parts[0].startswith("Plan:"):
+                    plan_id = int(parts[0].split(":")[1])
+                    virtual_add = USERS_DB.find_plan(id=plan_id)[0]['price']
+        except: pass
             
         wallet = USERS_DB.find_wallet(telegram_id=telegram_id)
-        if not wallet:
-            USERS_DB.add_wallet(telegram_id)
-            wallet = USERS_DB.find_wallet(telegram_id=telegram_id)
-            
-        wallet = wallet[0]
-        new_balance = wallet['balance'] + virtual_add
-        USERS_DB.edit_wallet(telegram_id, balance=new_balance)
+        if not wallet: USERS_DB.add_wallet(telegram_id); wallet = USERS_DB.find_wallet(telegram_id=telegram_id)
+        
+        USERS_DB.edit_wallet(telegram_id, balance=wallet[0]['balance'] + virtual_add)
         USERS_DB.edit_payment(payment_id, approved=True)
         
         try: bot.delete_message(call.message.chat.id, call.message.message_id)
         except: pass
         
         if not plan_id:
-            try: 
-                user_bot.send_message(
-                    telegram_id, 
-                    f"✅ تراکنش شما تایید شد!\n"
-                    f"💳 کیف پول شما به صورت کامل به مبلغ <b>{utils.rial_to_toman(virtual_add)}</b> تومان شارژ شد."
-                )
+            try: user_bot.send_message(telegram_id, f"✅ تراکنش تایید شد!\n💳 کیف پول شما به مبلغ <b>{utils.rial_to_toman(virtual_add)}</b> تومان شارژ شد.")
             except: pass
-            bot.send_message(call.message.chat.id, f"✅ پرداخت تایید شد.\nحساب کاربر به مبلغ کامل {utils.rial_to_toman(virtual_add)} تومان شارژ شد.\nکد تخفیف استفاده شده: {discount_code}")
+            bot.send_message(call.message.chat.id, f"✅ پرداخت تایید شد.\nمبلغ شارژ: {utils.rial_to_toman(virtual_add)} ت\nکد: {discount_code}")
         else:
-            try: user_bot.send_message(telegram_id, f"✅ پرداخت شما تایید شد.\n⚙️ سیستم در حال صدور خودکار اشتراک شماست، لطفاً چند لحظه صبر کنید...")
-            except: pass
-            
-            plan = USERS_DB.find_plan(id=plan_id)
-            if plan: plan = plan[0]
-            wallet = USERS_DB.find_wallet(telegram_id=telegram_id)[0]
-            
-            if plan and wallet['balance'] >= plan['price']:
-                USERS_DB.edit_wallet(telegram_id, balance=wallet['balance'] - plan['price'])
-                
-                server_id = plan['server_id']
-                server = USERS_DB.find_server(id=server_id)[0]
-                URL = server['url'] + API_PATH
-                
-                u_info = USERS_DB.find_user(telegram_id=telegram_id)[0]
-                name = u_info['full_name'] if u_info['full_name'] else f"User_{telegram_id}"
-                
-                import random
-                sub_id = random.randint(1000000, 9999999)
-                uuid = api.insert(URL, name=name, usage_limit_GB=plan['size_gb'], package_days=plan['days'], comment=f"HidyBot:{sub_id}")
-                
+            # بخش صدور خودکار
+            plan = USERS_DB.find_plan(id=plan_id)[0]
+            if wallet[0]['balance'] + virtual_add >= plan['price']:
+                USERS_DB.edit_wallet(telegram_id, balance=wallet[0]['balance'] + virtual_add - plan['price'])
+                server = USERS_DB.find_server(id=plan['server_id'])[0]
+                uuid = api.insert(server['url'] + API_PATH, name=USERS_DB.find_user(telegram_id=telegram_id)[0]['full_name'], usage_limit_GB=plan['size_gb'], package_days=plan['days'])
                 if uuid:
                     order_id = random.randint(1000000, 9999999)
-                    created_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    USERS_DB.add_order_subscription(sub_id, order_id, uuid, server_id)
-                    USERS_DB.add_order(order_id, telegram_id, name, plan['id'], created_at)
-                    
-                    base_sub = SUB_URL if SUB_URL.endswith("/") else f"{SUB_URL}/"
-                    sub_link = f"{base_sub}{uuid}/#{name.replace(' ', '_')}"
-                    qr_code = utils.txt_to_qr(sub_link)
-                    
-                    msg = f"🎉 اشتراک شما با موفقیت صادر شد!\n\n🔗 لینک اتصال شما:\n<code>{sub_link}</code>"
-                    try:
-                        if qr_code: user_bot.send_photo(telegram_id, photo=qr_code, caption=msg)
-                        else: user_bot.send_message(telegram_id, msg)
+                    USERS_DB.add_order_subscription(random.randint(1000000, 9999999), order_id, uuid, server['id'])
+                    sub_link = f"{SUB_URL.rstrip('/')}/{uuid}/"
+                    bot.send_message(call.message.chat.id, "✅ اکانت صادر و برای کاربر ارسال شد.")
+                    try: user_bot.send_message(telegram_id, f"🎉 اشتراک شما صادر شد:\n<code>{sub_link}</code>")
                     except: pass
-                    bot.send_message(call.message.chat.id, f"✅ اکانت پلن مستقیم با موفقیت ساخته و به پی‌وی کاربر ارسال شد.\nشناسه تراکنش: {payment_id}")
-                else:
-                    try: user_bot.send_message(telegram_id, "❌ خطای فنی سرور در ساخت اکانت. مبلغ پرداختی شما در کیف پولتان محفوظ گردید.")
-                    except: pass
-                    USERS_DB.edit_wallet(telegram_id, balance=wallet['balance']) 
-                    bot.send_message(call.message.chat.id, f"⚠️ خطای API هیدیفای، اکانت صادر نشد. مبلغ در کیف پول کاربر ذخیره شد.\nشناسه: {payment_id}")
-            else:
-                bot.send_message(call.message.chat.id, f"⚠️ تراکنش تایید شد اما موجودی کافی نبود.\nشناسه: {payment_id}")
+                else: bot.send_message(call.message.chat.id, "❌ خطا در صدور اکانت.")
 
-    # Payment - Reject Payment Callback
     elif key == 'cancel_payment_by_admin':
-        if not CLIENT_TOKEN:
-            bot.send_message(call.message.chat.id, MESSAGES['ERROR_CLIENT_TOKEN'])
-            return
         payment_id = value
-        payment_info = USERS_DB.find_payment(id=payment_id)
-        if not payment_info:
-            bot.send_message(call.message.chat.id, f"{MESSAGES['ERROR_PAYMENT_NOT_FOUND']}\n{MESSAGES['ORDER_ID']} {payment_id}")
-            return
-        payment_info = payment_info[0]
-        if payment_info['approved'] == 0:
-            bot.send_message(call.message.chat.id, f"{MESSAGES['ERROR_PAYMENT_ALREADY_REJECTED']}\n{MESSAGES['ORDER_ID']} {payment_id}")
-            return
-        payment_status = USERS_DB.edit_payment(payment_id, approved=False)
-        if payment_status:
-            try: user_bot.send_message(int(payment_info['telegram_id']), f"{MESSAGES['PAYMENT_NOT_CONFIRMED']}\n{MESSAGES['ORDER_ID']} {payment_id}")
-            except: pass
-            bot.send_message(call.message.chat.id, f"{MESSAGES['PAYMENT_NOT_CONFIRMED_ADMIN']}\n{MESSAGES['ORDER_ID']}: {payment_id}")
-            try: bot.delete_message(call.message.chat.id, call.message.message_id)
-            except: pass
-        else:
-            bot.send_message(call.message.chat.id, f"{MESSAGES['ERROR_UNKNOWN']}\n{MESSAGES['ORDER_ID']}: {payment_id}")
-
+        USERS_DB.edit_payment(payment_id, approved=False)
+        try: user_bot.send_message(int(USERS_DB.find_payment(id=payment_id)[0]['telegram_id']), f"❌ رسید شماره {payment_id} رد شد.")
+        except: pass
+        bot.send_message(call.message.chat.id, "❌ تراکنش رد شد.")
+        try: bot.delete_message(call.message.chat.id, call.message.message_id)
+        except: pass
     # Payment - Change status Payment Callback
     elif key == "change_status_payment_by_admin":
         payments = USERS_DB.find_payment(id=int(value))
