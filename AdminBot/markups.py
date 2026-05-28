@@ -156,28 +156,28 @@ def search_user_markup(server_id=None):
 #----------------------------------Bot User Management ------------------------------
 
 # Users Bot Management - Inline Keyboard Markup
-def users_bot_management_markup(value=None):
+def users_bot_management_markup():
     markup = InlineKeyboardMarkup()
-    markup.row_width = 3
-    # markup.add(
-    #     InlineKeyboardButton(KEY_MARKUP['USERS_BOT_ORDERS_STATUS'], callback_data=f"users_bot_orders_status:None"),
-    # markup.add(InlineKeyboardButton(KEY_MARKUP['USERS_BOT_ADD_PLAN'], callback_data=f"users_bot_add_plan:None"),
-    #            InlineKeyboardButton(KEY_MARKUP['USERS_BOT_DEL_PLAN'], callback_data=f"users_bot_list_plans:None"))
-    markup.add(InlineKeyboardButton(KEY_MARKUP['BOT_USERS_MANAGEMENT'],
-                                    callback_data=f"bot_users_list_management:None"))
-    # markup.add(InlineKeyboardButton(KEY_MARKUP['ORDERS_MANAGEMENT'],
-    #                                 callback_data=f"users_bot_orders_list_management:None"))
-    markup.add(InlineKeyboardButton(KEY_MARKUP['PAYMENT_MANAGEMENT'],
-                                    callback_data=f"users_bot_payments_list_management:None"),
-                                    InlineKeyboardButton(KEY_MARKUP['ORDERS_MANAGEMENT'],
-                                    callback_data=f"users_bot_orders_list_management:None"),)
-    markup.add(InlineKeyboardButton(KEY_MARKUP['USERS_BOT_SUB_STATUS'], callback_data=f"users_bot_sub_status:None"))
-    markup.add(InlineKeyboardButton(KEY_MARKUP['USERS_BOT_SEND_MESSAGE_TO_USERS'],
-                                    callback_data=f"users_bot_send_msg_users:None"))
-    markup.add(InlineKeyboardButton(KEY_MARKUP['USERS_BOT_OWNER_INFO'], callback_data=f"users_bot_owner_info:None"))
-    markup.add(InlineKeyboardButton(KEY_MARKUP['USERS_BOT_SETTINGS'], callback_data=f"users_bot_settings:None"))
+    markup.row_width = 2
+    markup.add(InlineKeyboardButton(KEY_MARKUP['BOT_USERS_MANAGEMENT'], callback_data="bot_users_list_management:None"),
+               InlineKeyboardButton(KEY_MARKUP['ORDERS_MANAGEMENT'], callback_data="users_bot_orders_list_management:None"))
+    markup.add(InlineKeyboardButton(KEY_MARKUP['PAYMENT_MANAGEMENT'], callback_data="users_bot_payments_list_management:None"),
+               InlineKeyboardButton(KEY_MARKUP['USERS_BOT_SETTINGS'], callback_data="users_bot_settings:None"))
+    markup.add(InlineKeyboardButton(KEY_MARKUP['USERS_BOT_OWNER_INFO'], callback_data="users_bot_owner_info:None"),
+               InlineKeyboardButton(KEY_MARKUP['USERS_BOT_SEND_MSG_USERS'], callback_data="users_bot_send_msg_users:None"))
+    # اضافه شدن دکمه مدیریت کدهای تخفیف
+    markup.add(InlineKeyboardButton("🎁 مدیریت کدهای تخفیف", callback_data="admin_discount_management:None"))
+    markup.add(InlineKeyboardButton(KEY_MARKUP['BACK'], callback_data="del_msg:None"))
     return markup
 
+# تابع جدید برای منوی اختصاصی تخفیف‌ها
+def admin_discount_markup():
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1
+    markup.add(InlineKeyboardButton("➕ افزودن کد تخفیف جدید", callback_data="admin_add_discount_step1:None"))
+    markup.add(InlineKeyboardButton("❌ حذف کد تخفیف", callback_data="admin_del_discount_step1:None"))
+    markup.add(InlineKeyboardButton("🔙 برگشت", callback_data="users_bot_management_menu:None"))
+    return markup
 # Users Bot Users List Management - Inline Keyboard Markup
 def users_bot_users_management_markup(value=None):
     markup = InlineKeyboardMarkup()

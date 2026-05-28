@@ -211,27 +211,36 @@ def next_step_apply_discount(message: Message):
     state = user_charge_state.get(message.chat.id)
     if not state: return
     
-    text = message.text.strip().lower()
-    virtual_amount = state['amount']
+    text = message.text.strip()
+    state['discount_code'] = "-" # مقدار پیش‌فرض
+    state['pay_amount'] = state['amount'] # مبلغی که باید پرداخت کند (پیش‌فرض برابر مبلغ کل)
     
-    if text != '/skip' and text != 'skip':
-        discount = USERS_DB.use_discount_code(message.text.strip())
+    if text.lower() != '/skip' and text.lower() != 'skip':
+        discount = USERS_DB.use_discount_code(text)
         if discount:
-            virtual_amount = int(state['amount'] * (1 + (discount / 100)))
-            bot.send_message(message.chat.id, f"✅ کد اعمال شد! مبلغ شارژ دریافتی شما {discount}٪ افزایش یافت.")
-        else:
-            bot.send_message(message.chat.id, "❌ کد تخفیف یافت نشد یا منقضی شده. فرآیند بدون تخفیف ادامه می‌یابد.")
+            # محاسبه مبلغ پرداختی جدید (درصد تخفیف کسر می‌شود)
+            discount_amount = int(state['amount'] * (discount / 100))
+            state['pay_amount'] = state['amount'] - discount_amount
+            state['discount_code'] = text
             
-    state['virtual_amount'] = virtual_amount
+            bot.send_message(
+                message.chat.id, 
+                f"🎁 کد تخفیف <b>{text}</b> با موفقیت اعمال شد!\n"
+                f"💰 مبلغ شارژ درخواستی: {utils.rial_to_toman(state['amount'])} تومان\n"
+                f"🔥 مبلغی که باید پرداخت کنید: <b>{utils.rial_to_toman(state['pay_amount'])}</b> تومان\n"
+                f"✨ حساب شما پس از تایید به اندازه کُل مبلغ یعنی <b>{utils.rial_to_toman(state['amount'])}</b> تومان شارژ خواهد شد."
+            )
+        else:
+            bot.send_message(message.chat.id, "❌ کد تخفیف معتبر نیست یا منقضی شده. فرآیند بدون تخفیف ادامه می‌یابد.")
+            
     settings = utils.all_configs_settings()
-    bot.send_message(message.chat.id, owner_info_template(settings['card_number'], settings['card_holder'], state['amount']), reply_markup=send_screenshot_markup(state['id']))
+    bot.send_message(message.chat.id, owner_info_template(settings['card_number'], settings['card_holder'], state['pay_amount']), reply_markup=send_screenshot_markup(state['id']))
 
+# ادیت متد ارسال اسکرین شات برای فرستادن اطلاعات کد تخفیف به ادمین
 def next_step_send_screenshot(message, payment_id):
     if is_it_cancel(message): return
     state = user_charge_state.get(message.chat.id)
-    if not state:
-        bot.send_message(message.chat.id, MESSAGES.get('UNKNOWN_ERROR', 'خطای سشن.'), reply_markup=main_menu_keyboard_markup())
-        return
+    if not state: return
 
     if message.content_type != 'photo':
         msg = bot.send_message(message.chat.id, MESSAGES.get('ERROR_TYPE_SEND_SCREENSHOT', 'لطفاً فقط عکس ارسال کنید.'), reply_markup=cancel_markup())
@@ -248,22 +257,37 @@ def next_step_send_screenshot(message, payment_id):
         path_recp = os.path.join(receiptions_path, file_name)
         with open(path_recp, 'wb') as new_file: new_file.write(downloaded_file)
 
-        payment_method = f"Plan:{state['plan_id']}" if state.get('plan_id') else f"Wallet:{state.get('virtual_amount', state['amount'])}"
+        # ذخیره اطلاعات در فیلد متد پرداخت به فرمت ساختاریافته برای خواندن ادمین
+        # ساختار: Plan:ID|Wallet:مبلغ_شارژ|Code:نام_کد|Pay:مبلغ_پرداختی
+        plan_part = f"Plan:{state['plan_id']}" if state.get('plan_id') else f"Wallet:{state['amount']}"
+        payment_method = f"{plan_part}|Code:{state.get('discount_code', '-')}|Pay:{state['pay_amount']}"
         created_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        status = USERS_DB.add_payment(state['id'], message.chat.id, state['amount'], payment_method, file_name, created_at)
+        status = USERS_DB.add_payment(state['id'], message.chat.id, state['pay_amount'], payment_method, file_name, created_at)
         if status:
             payment = USERS_DB.find_payment(id=state['id'])[0]
             user_data = USERS_DB.find_user(telegram_id=message.chat.id)[0]
+            
+            # آماده‌سازی متون برای نمایش در ادمین
+            admin_caption = f"""
+📥 <b>درخواست تراکنش جدید</b>
+👤 نام کاربر: {user_data['full_name']}
+🆔 آیدی عددی: <code>{user_data['telegram_id']}</code>
+---------------------
+🎟 کد تخفیف استفاده شده: <b>{state.get('discount_code', '-')}</b>
+💵 مبلغ پرداختی کاربر: <code>{utils.rial_to_toman(state['pay_amount'])}</code> تومان
+💰 مبلغی که شارژ خواهد شد: <b>{utils.rial_to_toman(state['amount'])}</b> تومان
+---------------------
+⚠️ لطفاً رسید بالا را با مبلغ دریافتی در حساب خود چک کنید.
+"""
             for ADMIN in ADMINS_ID:
-                try: admin_bot.send_photo(ADMIN, open(path_recp, 'rb'), caption=payment_received_template(payment, user_data), reply_markup=confirm_payment_by_admin(state['id']))
+                try: admin_bot.send_photo(ADMIN, open(path_recp, 'rb'), caption=admin_caption, reply_markup=confirm_payment_by_admin(state['id']))
                 except: pass
             bot.send_message(message.chat.id, "✅ رسید شما با موفقیت ثبت شد و در انتظار تایید ادمین می‌باشد.", reply_markup=main_menu_keyboard_markup())
         else: bot.send_message(message.chat.id, MESSAGES['UNKNOWN_ERROR'], reply_markup=main_menu_keyboard_markup())
     except Exception as e:
         logging.error(f"Error screenshot: {e}")
         bot.send_message(message.chat.id, MESSAGES['UNKNOWN_ERROR'], reply_markup=main_menu_keyboard_markup())
-
 
 # ----------------- Support Settings Modified -----------------
 @bot.callback_query_handler(func=lambda call: True)

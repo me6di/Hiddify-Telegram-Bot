@@ -118,7 +118,7 @@ class UserDBManager:
                         "default_server BOOLEAN NOT NULL DEFAULT 0)")
             self.conn.commit()
             
-            # --- Table for Discount Codes ---
+            # --- جدول اختصاصی کدهای تخفیف ---
             cur.execute("CREATE TABLE IF NOT EXISTS discount_codes ("
                         "code TEXT PRIMARY KEY,"
                         "discount_percent INTEGER NOT NULL,"
@@ -131,7 +131,7 @@ class UserDBManager:
             return False
         return True
 
-    # --- Discount Code Methods ---
+    # --- متدهای کد تخفیف ---
     def use_discount_code(self, code):
         cur = self.conn.cursor()
         cur.execute("SELECT * FROM discount_codes WHERE code=?", (code,))
@@ -153,7 +153,6 @@ class UserDBManager:
             return True
         except: return False
 
-    # --- Existing Methods ---
     def select_users(self):
         cur = self.conn.cursor()
         try:
@@ -253,56 +252,7 @@ class UserDBManager:
                 self.conn.commit()
             except Error as e: return False
         return True
-    
-    def add_user_plans(self, telegram_id, plan_id):
-        cur = self.conn.cursor()
-        try:
-            cur.execute("INSERT INTO user_plans(telegram_id, plan_id) VALUES(?,?)", (telegram_id, plan_id))
-            self.conn.commit()
-            return True
-        except Error as e: return False
 
-    def select_user_plans(self):
-        cur = self.conn.cursor()
-        try:
-            cur.execute("SELECT * FROM user_plans")
-            rows = cur.fetchall()
-            rows = [dict(zip([key[0] for key in cur.description], row)) for row in rows]
-            return rows
-        except Error as e: return None
-
-    def find_user_plans(self, **kwargs):
-        if len(kwargs) != 1: return None
-        rows = []
-        cur = self.conn.cursor()
-        try:
-            for key, value in kwargs.items():
-                cur.execute(f"SELECT * FROM user_plans WHERE {key}=?", (value,))
-                rows = cur.fetchall()
-            if len(rows) == 0: return None
-            rows = [dict(zip([key[0] for key in cur.description], row)) for row in rows]
-            return rows
-        except Error as e: return None
-
-    def delete_user_plans(self, **kwargs):
-        if len(kwargs) != 1: return False
-        cur = self.conn.cursor()
-        try:
-            for key, value in kwargs.items():
-                cur.execute(f"DELETE FROM user_plans WHERE {key}=?", (value,))
-                self.conn.commit()
-            return True
-        except Error as e: return False
-
-    def edit_user_plans(self, user_plans_id, **kwargs):
-        cur = self.conn.cursor()
-        for key, value in kwargs.items():
-            try:
-                cur.execute(f"UPDATE user_plans SET {key}=? WHERE id=?", (value, user_plans_id))
-                self.conn.commit()
-            except Error as e: return False
-        return True
-    
     def add_order(self, order_id, telegram_id,user_name, plan_id, created_at):
         cur = self.conn.cursor()
         try:
@@ -462,7 +412,7 @@ class UserDBManager:
             return True
         except Error as e: return False
         finally: cur.close()
-            
+
     def select_bool_config(self):
         cur = self.conn.cursor()
         try:
@@ -552,7 +502,7 @@ class UserDBManager:
         except Error as e: return False
         finally: cur.close()
 
-    # --- تابع مورد نیاز خط ۳۲۱ فایل config.py ---
+    # تابع حیاتی و پیش‌فرض جهت رفع خطای خط ۳۲۱ فایل config.py
     def set_default_configs(self):
         self.add_bool_config("visible_hiddify_hyperlink", True)
         self.add_bool_config("three_random_num_price", False)
