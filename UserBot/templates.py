@@ -33,9 +33,8 @@ def wallet_info_template(balance):
          {MESSAGES['WALLET_INFO_PART_1']} {rial_to_toman(balance)} {MESSAGES['WALLET_INFO_PART_2']}
          """
 
-
-# Plan Info Template
-def plan_info_template(plan, header=""):
+# Plan Info Template (Modified to show wallet balance)
+def plan_info_template(plan, header="", wallet_balance=None):
     msg = f"""
 {header}
 {MESSAGES['PLAN_INFO']}
@@ -44,8 +43,11 @@ def plan_info_template(plan, header=""):
 {MESSAGES['PLAN_INFO_DAYS']} {plan['days']} {MESSAGES['DAY_EXPIRE']}
 {MESSAGES['PLAN_INFO_PRICE']} {rial_to_toman(plan['price'])} {MESSAGES['TOMAN']}
 """
+    if wallet_balance is not None:
+        msg += f"\n💰 موجودی فعلی کیف پول: <b>{rial_to_toman(wallet_balance)}</b> {MESSAGES['TOMAN']}\n"
+
     if plan['description']:
-        msg += f"""{MESSAGES['PLAN_INFO_DESC']} {plan['description']}"""
+        msg += f"""\n{MESSAGES['PLAN_INFO_DESC']} {plan['description']}"""
     return msg
     
 

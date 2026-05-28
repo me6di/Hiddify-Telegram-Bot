@@ -168,6 +168,7 @@ def renewal_from_wallet_confirm(message: Message):
         if not status:
             bot.send_message(message.chat.id, MESSAGES['UNKNOWN_ERROR'])
             return
+        wallet = USERS_DB.find_wallet(telegram_id=message.chat.id)
 
     wallet = wallet[0]
     plan_info = USERS_DB.find_plan(id=plan_id)
@@ -269,6 +270,17 @@ def renewal_from_wallet_confirm(message: Message):
 
     bot.send_message(message.chat.id, MESSAGES['SUCCESSFUL_RENEWAL'], reply_markup=main_menu_keyboard_markup())
     update_info_subscription(message, uuid)
+    BASE_URL_PANEL = urlparse(server['url']).scheme + "://" + urlparse(server['url']).netloc
+    link = f"{BASE_URL_PANEL}/{urlparse(server['url']).path.split('/')[1]}/{uuid}/"
+    user_name = f"<a href='{link}'> {user_info_process['name']} </a>"
+    bot_users = USERS_DB.find_user(telegram_id=message.chat.id)
+    if bot_users:
+        bot_user = bot_users[0]
+    for ADMIN in ADMINS_ID:
+        admin_bot.send_message(ADMIN,
+                               f"""{MESSAGES['ADMIN_NOTIFY_NEW_RENEWAL']} {user_name} {MESSAGES['ADMIN_NOTIFY_NEW_RENEWAL_2']}
+{MESSAGES['SERVER']}<a href='{server['url']}/admin'> {server['title']} </a>
+{MESSAGES['INFO_ID']} <code>{sub['id']}</code>""", reply_markup=notify_to_admin_markup(bot_user))
 
 
 def next_step_send_screenshot(message, charge_wallet):
@@ -307,6 +319,15 @@ def next_step_send_screenshot(message, charge_wallet):
     else:
         bot.send_message(message.chat.id, MESSAGES['UNKNOWN_ERROR'], reply_markup=main_menu_keyboard_markup())
         
+
+def next_step_answer_to_admin(message, admin_id):
+    if is_it_cancel(message): return
+    bot_users = USERS_DB.find_user(telegram_id=message.chat.id)
+    if bot_users: bot_user = bot_users[0]
+    admin_bot.send_message(int(admin_id), f"{MESSAGES['NEW_TICKET_RECEIVED']}\n{MESSAGES['TICKET_TEXT']} {message.text}",
+                           reply_markup=answer_to_user_markup(bot_user,message.chat.id))
+    bot.send_message(message.chat.id, MESSAGES['SEND_TICKET_TO_ADMIN_RESPONSE'], reply_markup=main_menu_keyboard_markup())
+
 
 def next_step_send_name_for_buy_from_wallet(message: Message, plan):
     if is_it_cancel(message): return
@@ -372,6 +393,16 @@ def next_step_send_name_for_buy_from_wallet(message: Message, plan):
     else:
         bot.send_message(message.chat.id, caption_text, reply_markup=user_info_markup(user_info['uuid']))
 
+    BASE_URL_PANEL = urlparse(server['url']).scheme + "://" + urlparse(server['url']).netloc
+    link = f"{BASE_URL_PANEL}/{urlparse(server['url']).path.split('/')[1]}/{value}/"
+    user_name = f"<a href='{link}'> {name} </a>"
+    bot_users = USERS_DB.find_user(telegram_id=message.chat.id)
+    if bot_users: bot_user = bot_users[0]
+    for ADMIN in ADMINS_ID:
+        admin_bot.send_message(ADMIN, f"""{MESSAGES['ADMIN_NOTIFY_NEW_SUB']} {user_name} {MESSAGES['ADMIN_NOTIFY_CONFIRM']}
+{MESSAGES['SERVER']}<a href='{server['url']}/admin'> {server['title']} </a>
+{MESSAGES['INFO_ID']} <code>{sub_id}</code>""", reply_markup=notify_to_admin_markup(bot_user))
+
 
 def next_step_send_name_for_get_free_test(message: Message, server_id):
     if is_it_cancel(message): return
@@ -421,6 +452,16 @@ def next_step_send_name_for_get_free_test(message: Message, server_id):
     else:
         bot.send_message(message.chat.id, caption_text, reply_markup=user_info_markup(user_info['uuid']))
 
+    BASE_URL_PANEL = urlparse(server['url']).scheme + "://" + urlparse(server['url']).netloc
+    link = f"{BASE_URL_PANEL}/{urlparse(server['url']).path.split('/')[1]}/{uuid}/"
+    user_name = f"<a href='{link}'> {name} </a>"
+    bot_users = USERS_DB.find_user(telegram_id=message.chat.id)
+    if bot_users: bot_user = bot_users[0]
+    for ADMIN in ADMINS_ID:
+        admin_bot.send_message(ADMIN, f"""{MESSAGES['ADMIN_NOTIFY_NEW_FREE_TEST']} {user_name} {MESSAGES['ADMIN_NOTIFY_CONFIRM']}
+{MESSAGES['SERVER']}<a href='{server['url']}/admin'> {server['title']} </a>
+{MESSAGES['INFO_ID']} <code>{non_order_id}</code>""", reply_markup=notify_to_admin_markup(bot_user))
+
 def next_step_to_qr(message: Message):
     if is_it_cancel(message): return
     if not message.text:
@@ -434,36 +475,6 @@ def next_step_to_qr(message: Message):
             bot.send_photo(message.chat.id, qr_code, reply_markup=main_menu_keyboard_markup())
     else:
         bot.send_message(message.chat.id, MESSAGES['REQUEST_SEND_TO_QR_ERROR'], reply_markup=main_menu_keyboard_markup())
-
-
-def next_step_link_subscription(message: Message):
-    if not message.text:
-        bot.send_message(message.chat.id, MESSAGES['UNKNOWN_ERROR'], reply_markup=main_menu_keyboard_markup())
-        return
-    if is_it_cancel(message): return
-    uuid = utils.is_it_config_or_sub(message.text)
-    if uuid:
-        is_it_subscribed = utils.is_it_subscription_by_uuid_and_telegram_id(uuid, message.chat.id)
-        if is_it_subscribed:
-            bot.send_message(message.chat.id, MESSAGES['ALREADY_SUBSCRIBED'], reply_markup=main_menu_keyboard_markup())
-            return
-        non_sub_id = random.randint(10000000, 99999999)
-        servers = USERS_DB.select_servers()
-        if not servers:
-            bot.send_message(message.chat.id, MESSAGES['UNKNOWN_ERROR'], reply_markup=main_menu_keyboard_markup())
-            return
-        for server in servers:
-            users_list = api.find(server['url'] + API_PATH, uuid)
-            if users_list:
-                server_id = server['id']
-                break
-        status = USERS_DB.add_non_order_subscription(non_sub_id, message.chat.id, uuid, server_id)
-        if status:
-            bot.send_message(message.chat.id, MESSAGES['SUBSCRIPTION_CONFIRMED'], reply_markup=main_menu_keyboard_markup())
-        else:
-            bot.send_message(message.chat.id, MESSAGES['UNKNOWN_ERROR'], reply_markup=main_menu_keyboard_markup())
-    else:
-        bot.send_message(message.chat.id, MESSAGES['SUBSCRIPTION_INFO_NOT_FOUND'], reply_markup=main_menu_keyboard_markup())
 
 
 def next_step_increase_wallet_balance(message):
@@ -647,8 +658,12 @@ def callback_query(call: CallbackQuery):
         if not plan:
             bot.send_message(call.message.chat.id, MESSAGES['UNKNOWN_ERROR'], reply_markup=main_menu_keyboard_markup())
             return
+        
+        wallet = USERS_DB.find_wallet(telegram_id=call.message.chat.id)
+        wallet_balance = wallet[0]['balance'] if wallet else 0
+        
         bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
-                              text=plan_info_template(plan), reply_markup=confirm_buy_plan_markup(plan['id']))
+                              text=plan_info_template(plan, wallet_balance=wallet_balance), reply_markup=confirm_buy_plan_markup(plan['id']))
 
     elif key == 'confirm_buy_from_wallet':
         plan = USERS_DB.find_plan(id=value)[0]
@@ -729,7 +744,11 @@ def callback_query(call: CallbackQuery):
             bot.send_message(call.message.chat.id, MESSAGES['PLANS_NOT_FOUND'], reply_markup=main_menu_keyboard_markup())
             return
         renew_subscription_dict[call.message.chat.id]['plan_id'] = plan['id']
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=plan_info_template(plan), reply_markup=confirm_buy_plan_markup(plan['id'], renewal=True,uuid=renew_subscription_dict[call.message.chat.id]['uuid']))
+        
+        wallet = USERS_DB.find_wallet(telegram_id=call.message.chat.id)
+        wallet_balance = wallet[0]['balance'] if wallet else 0
+        
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=plan_info_template(plan, wallet_balance=wallet_balance), reply_markup=confirm_buy_plan_markup(plan['id'], renewal=True,uuid=renew_subscription_dict[call.message.chat.id]['uuid']))
 
     elif key == 'cancel_increase_wallet_balance':
         bot.delete_message(call.message.chat.id, call.message.message_id)
@@ -926,14 +945,6 @@ def send_ticket(message: Message):
     markup.add(telebot.types.InlineKeyboardButton(KEY_MARKUP.get('BACK', 'برگشت'), callback_data="del_msg:None"))
     
     bot.send_message(message.chat.id, support_msg, reply_markup=markup)
-
-
-@bot.message_handler(func=lambda message: message.text == KEY_MARKUP['LINK_SUBSCRIPTION'])
-def link_subscription(message: Message):
-    if is_user_banned(message.chat.id): return
-    if not is_user_in_channel(message.chat.id): return
-    bot.send_message(message.chat.id, MESSAGES['ENTER_SUBSCRIPTION_INFO'], reply_markup=cancel_markup())
-    bot.register_next_step_handler(message, next_step_link_subscription)
 
 
 @bot.message_handler(func=lambda message: message.text == KEY_MARKUP['WALLET'])

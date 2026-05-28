@@ -6,9 +6,10 @@ from Utils.utils import rial_to_toman, all_configs_settings
 from Utils.api import *
 
 def main_menu_keyboard_markup():
-    markup = ReplyKeyboardMarkup(row_width=3, resize_keyboard=True)
+    markup = ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
+    # جابجایی دکمه خرید به بالا و حذف دکمه اتصال اشتراک
+    markup.add(KeyboardButton(KEY_MARKUP['BUY_SUBSCRIPTION']))
     markup.add(KeyboardButton(KEY_MARKUP['SUBSCRIPTION_STATUS']))
-    markup.add(KeyboardButton(KEY_MARKUP['LINK_SUBSCRIPTION']), KeyboardButton(KEY_MARKUP['BUY_SUBSCRIPTION']))
     
     settings = all_configs_settings()
     
@@ -113,10 +114,12 @@ def wallet_info_markup():
     markup.add(InlineKeyboardButton(KEY_MARKUP['INCREASE_WALLET_BALANCE'], callback_data=f"increase_wallet_balance:wallet"))
     return markup
 
+# اضافه شدن دو دکمه همزمان در صورت کمبود موجودی
 def wallet_info_specific_markup(amount):
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
-    markup.add(InlineKeyboardButton(KEY_MARKUP['INCREASE_WALLET_BALANCE'], callback_data=f"increase_wallet_balance_specific:{amount}"))
+    markup.add(InlineKeyboardButton(f"💳 افزایش موجودی (دقیقاً {rial_to_toman(amount)} {MESSAGES['TOMAN']})", callback_data=f"increase_wallet_balance_specific:{amount}"))
+    markup.add(InlineKeyboardButton("➕ افزایش موجودی (مبلغ دلخواه)", callback_data="increase_wallet_balance:wallet"))
     return markup
 
 def force_join_channel_markup(channel_id):
