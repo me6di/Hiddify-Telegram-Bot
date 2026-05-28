@@ -1,6 +1,6 @@
 ﻿<p align="center">
-  <a href="https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot" target="_blank" rel="noopener noreferrer">
-    <img width="200" height="200" src="https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/blob/main/Screenshots/icon.png?raw=True" alt="Hidy Bot">
+  <a href="[https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot](https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot)" target="_blank" rel="noopener noreferrer">
+    <img width="200" height="200" src="[https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/blob/main/Screenshots/icon.png?raw=true](https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/blob/main/Screenshots/icon.png?raw=true)" alt="Hidy Bot">
   </a>
 </p>
 
@@ -33,44 +33,71 @@ Hidy Bot is a Telegram bot that allows you to manage your Hiddify panel, build y
 To install the bot, run the following command:
 
 ```bash
-sudo bash -c "$(curl -Lfo- [https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/main/install.sh](https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/main/install.sh))"
+sudo bash -c "$(curl -Lfo- https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/main/install.sh)"
+```
+<br>
 
 Make sure you have the following information ready before running the installation:
 
-Admin Telegram Number ID : Get it from User info bot (Example: 123456789)
+1. `Admin Telegram Number ID` : Get it from [User info bot](https://t.me/userinfobot) (Example: `123456789`)
+2. `Admin Telegram Bot Token` : Get it from [BotFather](https://t.me/BotFather) (Example: `1234567890:ABCdEfGhIjKlMnOpQrStUvWxYz`)
+3. `Client Telegram Bot Token` : Get it from [BotFather](https://t.me/BotFather) (Example: `1234567890:ABCdEfGhIjKlMnOpQrStUvWxYz`)
+4. `Admin Panel URL` : The URL of your Hiddify panel for API connection (Example: `https://panel.example.com/7frgemkvtE0/ADMIN_UUID`)
+5. `Subscription Base URL` : The base URL given to users for their configs (Example: `https://sub.example.com/7frgemkvtE0/`)
+6. `Bot Language` : Options are `en` and `fa` [default is `fa`]
 
-Admin Telegram Bot Token : Get it from BotFather (Example: 1234567890:ABCdEfGhIjKlMnOpQrStUvWxYz)
+Now you can use the bot in Telegram by sending the `/start` command.
 
-Client Telegram Bot Token : Get it from BotFather (Example: 1234567890:ABCdEfGhIjKlMnOpQrStUvWxYz)
+## Commands
 
-Admin Panel URL : The URL of your Hiddify panel for API connection (Example: https://panel.example.com/7frgemkvtE0/ADMIN_UUID)
+- ### Update bot
+```bash
+cd /opt/Hiddify-Telegram-Bot/ && curl -fsSL -o /opt/Hiddify-Telegram-Bot/update.sh https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/main/update.sh && chmod +x /opt/Hiddify-Telegram-Bot/update.sh && bash /opt/Hiddify-Telegram-Bot/update.sh
+```
 
-Subscription Base URL : The base URL given to users for their configs (Example: https://sub.example.com/7frgemkvtE0/)
-
-Bot Language : Options are en and fa [default is fa]
-
-Now you can use the bot in Telegram by sending the /start command.
-
-Commands
-Update bot
-Bash
-cd /opt/Hiddify-Telegram-Bot/ && curl -fsSL -o /opt/Hiddify-Telegram-Bot/update.sh [https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/main/update.sh](https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/main/update.sh) && chmod +x /opt/Hiddify-Telegram-Bot/update.sh && bash /opt/Hiddify-Telegram-Bot/update.sh
-Restart bot
-Bash
+- ### Restart bot
+```bash
 cd /opt/Hiddify-Telegram-Bot/ && chmod +x restart.sh && ./restart.sh
-Stop bot
-Bash
+```
+
+- ### Stop bot
+```bash
 pkill -9 -f hiddifyTelegramBot.py
-Get bot logs
-Bash
+```
+
+- ### Get bot logs
+```bash
 cat /opt/Hiddify-Telegram-Bot/Logs/hidyBot.log
-Edit bot configs
-Bash
+```
+
+- ### Edit bot configs
+```bash
 cd /opt/Hiddify-Telegram-Bot/ && python3 config.py && chmod +x restart.sh && ./restart.sh
-Reinstall bot
-Bash
-cd /opt/ && rm -rf /opt/Hiddify-Telegram-Bot/ && sudo bash -c "$(curl -Lfo- [https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/main/install.sh](https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/main/install.sh))"
-Uninstall bot
-Bash
+```
+
+- ### Reinstall bot
+```bash
+cd /opt/ && rm -rf /opt/Hiddify-Telegram-Bot/ && sudo bash -c "$(curl -Lfo- https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/main/install.sh)"
+```
+
+- ### Uninstall bot
+```bash
 cd /opt/Hiddify-Telegram-Bot/ && chmod +x uninstall.sh && ./uninstall.sh
 ```
+
+## Screenshots
+#### Users Bot
+- <img src="[https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-u-1.jpg?raw=true](https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-u-1.jpg?raw=true)" width=35% height=35%>
+- <img src="[https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-u-2.jpg?raw=true](https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-u-2.jpg?raw=true)" width=35% height=35%>
+- <img src="[https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-u-3.jpg?raw=true](https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-u-3.jpg?raw=true)" width=35% height=35%>
+- <img src="[https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-u-4.jpg?raw=true](https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-u-4.jpg?raw=true)" width=35% height=35%>
+
+#### Admin Bot
+- <img src="[https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-a-1.jpg?raw=true](https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-a-1.jpg?raw=true)" width=35% height=35%>
+- <img src="[https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-a-2.jpg?raw=true](https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-a-2.jpg?raw=true)" width=35% height=35%>
+- <img src="[https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-a-6.jpg?raw=true](https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-a-6.jpg?raw=true)" width=35% height=35%>
+- <img src="[https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-a-8.jpg?raw=true](https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-a-8.jpg?raw=true)" width=35% height=35%>
+- <img src="[https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-a-5.jpg?raw=true](https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-a-5.jpg?raw=true)" width=35% height=35%>
+- <img src="[https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-a-3.jpg?raw=true](https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-a-3.jpg?raw=true)" width=35% height=35%>
+- <img src="[https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-a-4.jpg?raw=true](https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-a-4.jpg?raw=true)" width=35% height=35%>
+- <img src="[https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-a-7.jpg?raw=true](https://github.com/YOUR_GITHUB_USERNAME/Hiddify-Telegram-Bot/blob/main/Screenshots/scr-a-7.jpg?raw=true)" width=35% height=35%>
