@@ -1658,6 +1658,18 @@ def callback_query(call: CallbackQuery):
     elif key == "users_bot_management_menu":
         bot.edit_message_text(KEY_MARKUP['USERS_BOT_MANAGEMENT'], call.message.chat.id, call.message.message_id,
                                       reply_markup=markups.users_bot_management_markup())
+    elif key == "admin_discount_management":
+        bot.edit_message_text("🎁 <b>منوی مدیریت کدهای تخفیف و نمایندگی</b>\n\nاز دکمه‌های زیر برای افزودن یا حذف کدهای تخفیف استفاده کنید:", 
+                              call.message.chat.id, call.message.message_id, reply_markup=markups.admin_discount_markup())
+
+    elif key == "admin_add_discount_step1":
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+        bot.send_message(call.message.chat.id, "✍️ لطفاً اطلاعات کد تخفیف را به صورت دستور زیر ارسال کنید:\n\n<code>/add_discount <نام کد> <درصد تخفیف> <تعداد مجاز></code>\n\nمثال:\n<code>/add_discount Agent30 30 50</code>")
+
+    elif key == "admin_del_discount_step1":
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+        bot.send_message(call.message.chat.id, "✍️ لطفاً نام کد تخفیف مورد نظر را جهت باطل کردن به شکل زیر ارسال کنید:\n\n<code>/del_discount <نام کد></code>")
+
     # منوی شیشه‌ای مدیریت کدهای تخفیف
     elif key == "admin_discount_management":
         bot.edit_message_text("🎁 <b>منوی مدیریت کدهای تخفیف و نمایندگی</b>\n\nاز دکمه‌های زیر برای افزودن یا حذف کدهای تخفیف استفاده کنید:", 
@@ -2480,7 +2492,7 @@ def callback_query(call: CallbackQuery):
 
    # ----------------------------------- Payment Callbacks -----------------------------------
     # Payment - Confirm Payment Callback (هوشمند)
-# Payment - Confirm Payment Callback (هوشمند و متصل به سیستم تخفیف جدید)
+    # Payment - Confirm Payment Callback (هوشمند و متصل به سیستم تخفیف جدید)
     elif key == "confirm_payment_by_admin":
         if not CLIENT_TOKEN:
             bot.send_message(call.message.chat.id, MESSAGES['ERROR_CLIENT_TOKEN'])
@@ -2498,8 +2510,8 @@ def callback_query(call: CallbackQuery):
         telegram_id = payment_info['telegram_id']
         method = payment_info['payment_method']
         
-        # ساختار جدید متد پرداخت: Plan:ID|Wallet:مبلغ_شارژ|Code:نام_کد|Pay:مبلغ_پرداختی
-        virtual_add = payment_info['payment_amount'] # مقدار پرداختی کاربر (پیش‌فرض)
+        # فرمت متد پرداخت: Plan:ID|Wallet:مبلغ_شارژ|Code:نام_کد|Pay:مبلغ_پرداختی
+        virtual_add = payment_info['payment_amount'] 
         plan_id = None
         discount_code = "-"
         
@@ -2508,21 +2520,17 @@ def callback_query(call: CallbackQuery):
                 parts = method.split('|')
                 main_target = parts[0]
                 
-                # استخراج نام کد تخفیف جهت نمایش در پیام ادمین
                 for part in parts:
                     if part.startswith("Code:"):
                         discount_code = part.split(":")[1]
                 
-                # تشخیص نوع درخواست (شارژ کیف پول یا خرید مستقیم پلن)
                 if main_target.startswith("Wallet:"):
-                    # در سیستم جدید، مبلغ شارژ اصلی (تخفیف نخورده) را استخراج می‌کنیم تا کیف پول کامل شارژ شود
                     virtual_add = int(main_target.split(":")[1])
                 elif main_target.startswith("Plan:"):
                     plan_id = int(main_target.split(":")[1])
                     plan_info = USERS_DB.find_plan(id=plan_id)[0]
                     virtual_add = plan_info['price']
             else:
-                # حالت سازگاری با تراکنش‌های قدیمی دیتابیس
                 if method.startswith("Wallet:"):
                     virtual_add = int(method.split(":")[1])
                 elif method.startswith("Plan:"):
@@ -2532,7 +2540,6 @@ def callback_query(call: CallbackQuery):
         except Exception as parse_err:
             logging.error(f"Error parsing payment method: {parse_err}")
             
-        # شارژ کیف پول کاربر بر اساس مبلغ کامل (تخفیف نخورده)
         wallet = USERS_DB.find_wallet(telegram_id=telegram_id)
         if not wallet:
             USERS_DB.add_wallet(telegram_id)
@@ -2546,19 +2553,15 @@ def callback_query(call: CallbackQuery):
         try: bot.delete_message(call.message.chat.id, call.message.message_id)
         except: pass
         
-        # سناریو اول: کاربر فقط درخواست شارژ کیف پول داشته است
         if not plan_id:
             try: 
                 user_bot.send_message(
                     telegram_id, 
                     f"✅ تراکنش شما تایید شد!\n"
-                    f"💳 کیف پول شما به صورت کامل به مبلغ <b>{utils.rial_to_toman(virtual_add)}</b> تومان شارژ شد.\n"
-                    f"✨ از حسن انتخاب شما سپاسگزاریم."
+                    f"💳 کیف پول شما به صورت کامل به مبلغ <b>{utils.rial_to_toman(virtual_add)}</b> تومان شارژ شد."
                 )
             except: pass
             bot.send_message(call.message.chat.id, f"✅ پرداخت تایید شد.\nحساب کاربر به مبلغ کامل {utils.rial_to_toman(virtual_add)} تومان شارژ شد.\nکد تخفیف استفاده شده: {discount_code}")
-        
-        # سناریو دوم: کاربر خرید مستقیم پلن انجام داده است -> صدور خودکار اکانت!
         else:
             try: user_bot.send_message(telegram_id, f"✅ پرداخت شما تایید شد.\n⚙️ سیستم در حال صدور خودکار اشتراک شماست، لطفاً چند لحظه صبر کنید...")
             except: pass
@@ -2567,7 +2570,6 @@ def callback_query(call: CallbackQuery):
             if plan: plan = plan[0]
             wallet = USERS_DB.find_wallet(telegram_id=telegram_id)[0]
             
-            # کسر هزینه پلن از کیف پول شارژ شده
             if plan and wallet['balance'] >= plan['price']:
                 USERS_DB.edit_wallet(telegram_id, balance=wallet['balance'] - plan['price'])
                 
@@ -2599,13 +2601,13 @@ def callback_query(call: CallbackQuery):
                     except: pass
                     bot.send_message(call.message.chat.id, f"✅ اکانت پلن مستقیم با موفقیت ساخته و به پی‌وی کاربر ارسال شد.\nشناسه تراکنش: {payment_id}")
                 else:
-                    # در صورت بروز خطای فنی در پنل هیدیفای، پول کاربر سوخت نمی‌شود و در کیف پولش می‌ماند
-                    try: user_bot.send_message(telegram_id, "❌ خطای فنی سرور در ساخت اکانت. مبلغ پرداختی شما در کیف پولتان محفوظ گردید تا مجدداً اقدام کنید.")
+                    try: user_bot.send_message(telegram_id, "❌ خطای فنی سرور در ساخت اکانت. مبلغ پرداختی شما در کیف پولتان محفوظ گردید.")
                     except: pass
-                    USERS_DB.edit_wallet(telegram_id, balance=wallet['balance']) # برگشت دادن پول کسر شده
-                    bot.send_message(call.message.chat.id, f"⚠️ تراکنش تایید شد اما به دلیل خطای API هیدیفای، اکانت صادر نشد. مبلغ در کیف پول کاربر ذخیره شد.\nشناسه: {payment_id}")
+                    USERS_DB.edit_wallet(telegram_id, balance=wallet['balance']) 
+                    bot.send_message(call.message.chat.id, f"⚠️ خطای API هیدیفای، اکانت صادر نشد. مبلغ در کیف پول کاربر ذخیره شد.\nشناسه: {payment_id}")
             else:
-                bot.send_message(call.message.chat.id, f"⚠️ تراکنش تایید شد اما موجودی یا اطلاعات پلن برای صدور خودکار کافی نبود.\nشناسه: {payment_id}")
+                bot.send_message(call.message.chat.id, f"⚠️ تراکنش تایید شد اما موجودی کافی نبود.\nشناسه: {payment_id}")
+
     # Payment - Reject Payment Callback
     elif key == 'cancel_payment_by_admin':
         if not CLIENT_TOKEN:
@@ -2614,13 +2616,11 @@ def callback_query(call: CallbackQuery):
         payment_id = value
         payment_info = USERS_DB.find_payment(id=payment_id)
         if not payment_info:
-            bot.send_message(call.message.chat.id,
-                             f"{MESSAGES['ERROR_PAYMENT_NOT_FOUND']}\n{MESSAGES['ORDER_ID']} {payment_id}")
+            bot.send_message(call.message.chat.id, f"{MESSAGES['ERROR_PAYMENT_NOT_FOUND']}\n{MESSAGES['ORDER_ID']} {payment_id}")
             return
         payment_info = payment_info[0]
-        if payment_info['approved'] == 0:elif key == "cancel_payment_by_admin":
-            bot.send_message(call.message.chat.id,
-                             f"{MESSAGES['ERROR_PAYMENT_ALREADY_REJECTED']}\n{MESSAGES['ORDER_ID']} {payment_id}")
+        if payment_info['approved'] == 0:
+            bot.send_message(call.message.chat.id, f"{MESSAGES['ERROR_PAYMENT_ALREADY_REJECTED']}\n{MESSAGES['ORDER_ID']} {payment_id}")
             return
         payment_status = USERS_DB.edit_payment(payment_id, approved=False)
         if payment_status:
@@ -2990,7 +2990,7 @@ def manual_wallet(message: Message):
     if message.chat.id not in ADMINS_ID: return
     parts = message.text.split()
     if len(parts) != 3:
-        bot.reply_to(message, "⚠️ راهنما: /wallet <آیدی عددی کاربر> <مبلغ>\nمثال افزایش: /wallet 123456 +50000\nمثال کاهش: /wallet 123456 -10000\nتعیین مبلغ دقیق: /wallet 123456 0")
+        bot.reply_to(message, "⚠️ راهنما: /wallet <آیدی عددی کاربر> <مبلغ>\nمثال افزایش: /wallet 123456 +50000\nمثال کاهش: /wallet 123456 -10000")
         return
     
     target_id = int(parts[1])
@@ -3016,10 +3016,10 @@ def add_discount(message: Message):
     if message.chat.id not in ADMINS_ID: return
     parts = message.text.split()
     if len(parts) != 4:
-        bot.reply_to(message, "⚠️ راهنما: /add_discount <نام کد> <درصد تخفیف> <تعداد استفاده>\nمثال: /add_discount Agent 30 100")
+        bot.reply_to(message, "⚠️ راهنما: /add_discount <نام کد> <درصد تخفیف> <تعداد استفاده>")
         return
     USERS_DB.add_discount_code(parts[1], int(parts[2]), int(parts[3]))
-    bot.reply_to(message, f"✅ کد تخفیف {parts[1]} با {parts[2]}% شارژ بیشتر (ظرفیت: {parts[3]}) ساخته شد.")
+    bot.reply_to(message, f"✅ کد تخفیف {parts[1]} با {parts[2]}% کسر مبالغ فاکتور (ظرفیت: {parts[3]}) ساخته شد.")
 
 @bot.message_handler(commands=['del_discount'])
 def del_discount(message: Message):
