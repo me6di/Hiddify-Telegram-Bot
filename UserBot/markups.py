@@ -78,8 +78,7 @@ def plans_list_markup(plans, renewal=False, uuid=None):
             keys.append(InlineKeyboardButton(
                 f"{plan['size_gb']}{MESSAGES.get('GB', 'گیگ')} | {plan['days']}{MESSAGES.get('DAY_EXPIRE', 'روز')} | {rial_to_toman(plan['price'])} {MESSAGES.get('TOMAN', 'تومان')}",
                 callback_data=f"{callback}:{plan['id']}"))
-    if len(keys) == 0:
-        return None
+    if len(keys) == 0: return None
     if renewal:
         keys.append(InlineKeyboardButton(KEY_MARKUP.get('BACK', 'برگشت'), callback_data=f"back_to_user_panel:{uuid}"))
     else:
@@ -101,12 +100,10 @@ def servers_list_markup(servers, free_test=False):
     markup.add(*keys)
     return markup
 
-# اضافه شدن حالت ایمن برای کلیدهای ادمین (دلیل اصلی مشکل شما)
 def confirm_payment_by_admin(order_id):
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
-    markup.add(
-        InlineKeyboardButton(KEY_MARKUP.get('CONFIRM_PAYMENT', '✅ تایید پرداخت'), callback_data=f"confirm_payment_by_admin:{order_id}"))
+    markup.add(InlineKeyboardButton(KEY_MARKUP.get('CONFIRM_PAYMENT', '✅ تایید پرداخت'), callback_data=f"confirm_payment_by_admin:{order_id}"))
     markup.add(InlineKeyboardButton(KEY_MARKUP.get('NO', '❌ رد تراکنش'), callback_data=f"cancel_payment_by_admin:{order_id}"))
     markup.add(InlineKeyboardButton(KEY_MARKUP.get('SEND_MESSAGE', '✉️ ارسال پیام'), callback_data=f"send_message_by_admin:{order_id}"))
     return markup
@@ -121,10 +118,8 @@ def notify_to_admin_markup(user):
 def send_ticket_to_admin():
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
-    markup.add(
-        InlineKeyboardButton(KEY_MARKUP['SEND_TICKET_TO_SUPPORT'], callback_data=f"send_ticket_to_support:None"))
-    markup.add(
-        InlineKeyboardButton(KEY_MARKUP['CANCEL'], callback_data=f"del_msg:None"))
+    markup.add(InlineKeyboardButton(KEY_MARKUP['SEND_TICKET_TO_SUPPORT'], callback_data=f"send_ticket_to_support:None"))
+    markup.add(InlineKeyboardButton(KEY_MARKUP['CANCEL'], callback_data=f"del_msg:None"))
     return markup
 
 def answer_to_user_markup(user, user_id):
@@ -146,10 +141,10 @@ def wallet_info_markup():
     markup.add(InlineKeyboardButton(KEY_MARKUP['INCREASE_WALLET_BALANCE'], callback_data=f"increase_wallet_balance:wallet"))
     return markup
 
-def wallet_info_specific_markup(amount):
+def wallet_info_specific_markup(plan_id, amount):
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
-    markup.add(InlineKeyboardButton(f"💳 افزایش موجودی (دقیقاً {rial_to_toman(amount)} {MESSAGES.get('TOMAN', 'تومان')})", callback_data=f"increase_wallet_balance_specific:{amount}"))
+    markup.add(InlineKeyboardButton(f"💳 شارژ دقیق برای خرید ( {rial_to_toman(amount)} {MESSAGES.get('TOMAN', 'تومان')} )", callback_data=f"increase_wallet_balance_specific:{plan_id}:{amount}"))
     markup.add(InlineKeyboardButton("➕ افزایش موجودی (مبلغ دلخواه)", callback_data="increase_wallet_balance:wallet"))
     return markup
 
@@ -178,25 +173,15 @@ def user_subscriptions_list_markup(subs, page=1):
     start = (page - 1) * PER_PAGE
     end = start + PER_PAGE
     keys = []
-    
     for sub in subs[start:end]:
         name = sub.get('name', 'User') or 'User'
         if len(name) > 15: name = name[:15] + ".."
         keys.append(InlineKeyboardButton(f"👤 {name}", callback_data=f"user_sub_info:{sub['uuid']}"))
-    
     markup.add(*keys)
-    
     nav_keys = []
-    if page > 1:
-        nav_keys.append(InlineKeyboardButton(KEY_MARKUP.get('PREV_PAGE', 'قبلی'), callback_data=f"user_sub_page:{page - 1}"))
-    if page < len(subs) / PER_PAGE:
-        nav_keys.append(InlineKeyboardButton(KEY_MARKUP.get('NEXT_PAGE', 'بعدی'), callback_data=f"user_sub_page:{page + 1}"))
-    if nav_keys:
-        markup.add(*nav_keys)
-        
-    markup.add(
-        InlineKeyboardButton("🔍 با نام", callback_data="user_sub_search_name:None"),
-        InlineKeyboardButton("🔍 با UUID", callback_data="user_sub_search_uuid:None")
-    )
+    if page > 1: nav_keys.append(InlineKeyboardButton(KEY_MARKUP.get('PREV_PAGE', 'قبلی'), callback_data=f"user_sub_page:{page - 1}"))
+    if page < len(subs) / PER_PAGE: nav_keys.append(InlineKeyboardButton(KEY_MARKUP.get('NEXT_PAGE', 'بعدی'), callback_data=f"user_sub_page:{page + 1}"))
+    if nav_keys: markup.add(*nav_keys)
+    markup.add(InlineKeyboardButton("🔍 با نام", callback_data="user_sub_search_name:None"), InlineKeyboardButton("🔍 با UUID", callback_data="user_sub_search_uuid:None"))
     markup.add(InlineKeyboardButton(KEY_MARKUP.get('BACK', 'برگشت'), callback_data=f"del_msg:None"))
     return markup

@@ -8,7 +8,7 @@ import telebot
 import os
 from telebot.types import Message, CallbackQuery
 
-from config import TELEGRAM_TOKEN, ADMINS_ID, PANEL_ADMIN_ID, CLIENT_TOKEN, BOT_BACKUP_LOC
+from config import TELEGRAM_TOKEN, ADMINS_ID, PANEL_ADMIN_ID, CLIENT_TOKEN, BOT_BACKUP_LOC, SUB_URL
 from AdminBot.content import BOT_COMMANDS, MESSAGES, KEY_MARKUP
 from AdminBot import markups
 from AdminBot import templates
@@ -2466,8 +2466,8 @@ def callback_query(call: CallbackQuery):
             
 
 
-    # ----------------------------------- Payment Callbacks -----------------------------------
-    # Payment - Confirm Payment Callback
+   # ----------------------------------- Payment Callbacks -----------------------------------
+    # Payment - Confirm Payment Callback (هوشمند)
     elif key == "confirm_payment_by_admin":
         if not CLIENT_TOKEN:
             bot.send_message(call.message.chat.id, MESSAGES['ERROR_CLIENT_TOKEN'])
@@ -2479,32 +2479,90 @@ def callback_query(call: CallbackQuery):
                              f"{MESSAGES['ERROR_PAYMENT_NOT_FOUND']}\n{MESSAGES['ORDER_ID']} {payment_id}")
             return
         payment_info = payment_info[0]
-        if payment_info['approved'] == 1:
+        if payment_info['approved'] is not None and payment_info['approved'] != 0:
             bot.send_message(call.message.chat.id,
                              f"{MESSAGES['ERROR_PAYMENT_ALREADY_CONFIRMED']}\n{MESSAGES['ORDER_ID']} {payment_id}")
             return
         
-        wallet = USERS_DB.find_wallet(telegram_id=payment_info['telegram_id'])
+        telegram_id = payment_info['telegram_id']
+        actual_paid = payment_info['payment_amount']
+        method = payment_info['payment_method']
+        
+        virtual_add = actual_paid
+        plan_id = None
+        if method.startswith("Wallet:"):
+            try: virtual_add = int(method.split(":")[1])
+            except: pass
+        elif method.startswith("Plan:"):
+            try: plan_id = int(method.split(":")[1])
+            except: pass
+            
+        # شارژ کیف پول کاربر
+        wallet = USERS_DB.find_wallet(telegram_id=telegram_id)
         if not wallet:
-            create_wallet_status = USERS_DB.add_wallet(payment_info['telegram_id'])
-            if not create_wallet_status: 
-                bot.send_message(call.message.chat.id, MESSAGES['ERROR_UNKNOWN'])
-                return
-            wallet = USERS_DB.find_wallet(telegram_id=payment_info['telegram_id'])
-
+            USERS_DB.add_wallet(telegram_id)
+            wallet = USERS_DB.find_wallet(telegram_id=telegram_id)
+            
         wallet = wallet[0]
-        payment_status = USERS_DB.edit_payment(payment_id, approved=True)
-        if payment_status:
-            new_balance = int(wallet['balance']) + int(payment_info['payment_amount'])
-            wallet_status = USERS_DB.edit_wallet(wallet['telegram_id'], balance=new_balance)
-            if not wallet_status:
-                bot.send_message(call.message.chat.id, MESSAGES['ERROR_UNKNOWN'])
-                return
-            bot.delete_message(call.message.chat.id, call.message.message_id)
-            user_bot.send_message(int(payment_info['telegram_id']),
-                                  f"{MESSAGES['WALLET_PAYMENT_CONFIRMED']}\n{MESSAGES['ORDER_ID']} {payment_id}")
-            bot.send_message(call.message.chat.id,
-                             f"{MESSAGES['PAYMENT_CONFIRMED_ADMIN']}\n{MESSAGES['ORDER_ID']} {payment_id}")
+        new_balance = wallet['balance'] + virtual_add
+        USERS_DB.edit_wallet(telegram_id, balance=new_balance)
+        USERS_DB.edit_payment(payment_id, approved=True)
+        
+        try: bot.delete_message(call.message.chat.id, call.message.message_id)
+        except: pass
+        
+        # اگر فقط شارژ ساده بوده
+        if not plan_id:
+            try: user_bot.send_message(telegram_id, f"✅ تراکنش شما تایید شد.\n💳 مبلغ {utils.rial_to_toman(virtual_add)} {MESSAGES.get('TOMAN', 'تومان')} به کیف پول شما اضافه شد.")
+            except: pass
+            bot.send_message(call.message.chat.id, f"{MESSAGES['PAYMENT_CONFIRMED_ADMIN']}\n{MESSAGES['ORDER_ID']} {payment_id}")
+        # اگر شارژ برای خرید یک پلن مشخص بوده: ساخت اتوماتیک!
+        else:
+            try: user_bot.send_message(telegram_id, f"✅ پرداخت تایید شد. سیستم در حال صدور اشتراک شماست...")
+            except: pass
+            plan = USERS_DB.find_plan(id=plan_id)
+            if plan: plan = plan[0]
+            wallet = USERS_DB.find_wallet(telegram_id=telegram_id)[0]
+            
+            if plan and wallet['balance'] >= plan['price']:
+                USERS_DB.edit_wallet(telegram_id, balance=wallet['balance'] - plan['price'])
+                
+                server_id = plan['server_id']
+                server = USERS_DB.find_server(id=server_id)[0]
+                URL = server['url'] + API_PATH
+                
+                u_info = USERS_DB.find_user(telegram_id=telegram_id)[0]
+                name = u_info['full_name'] if u_info['full_name'] else f"User_{telegram_id}"
+                
+                import random
+                sub_id = random.randint(1000000, 9999999)
+                uuid = api.insert(URL, name=name, usage_limit_GB=plan['size_gb'], package_days=plan['days'], comment=f"HidyBot:{sub_id}")
+                
+                if uuid:
+                    order_id = random.randint(1000000, 9999999)
+                    created_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    USERS_DB.add_order_subscription(sub_id, order_id, uuid, server_id)
+                    USERS_DB.add_order(order_id, telegram_id, name, plan['id'], created_at)
+                    
+                    base_sub = SUB_URL if SUB_URL.endswith("/") else f"{SUB_URL}/"
+                    sub_link = f"{base_sub}{uuid}/#{name.replace(' ', '_')}"
+                    qr_code = utils.txt_to_qr(sub_link)
+                    
+                    msg = f"🎉 اشتراک شما با موفقیت صادر شد!\n\n🔗 لینک اتصال:\n<code>{sub_link}</code>"
+                    try:
+                        if qr_code: user_bot.send_photo(telegram_id, photo=qr_code, caption=msg)
+                        else: user_bot.send_message(telegram_id, msg)
+                    except: pass
+                    bot.send_message(call.message.chat.id, f"✅ اکانت خودکار ساخته و ارسال شد.\n{MESSAGES['ORDER_ID']} {payment_id}")
+                else:
+                    try: user_bot.send_message(telegram_id, "❌ خطای سرور در ساخت کاربر. موجودی در کیف پول شما محفوظ است.")
+                    except: pass
+                    USERS_DB.edit_wallet(telegram_id, balance=wallet['balance']) # برگشت پول
+                    bot.send_message(call.message.chat.id, f"⚠️ تایید شد اما اکانت ساخته نشد (خطای پنل).\n{MESSAGES['ORDER_ID']} {payment_id}")
+            else:
+                try: user_bot.send_message(telegram_id, "❌ موجودی کافی نیست یا پلن یافت نشد. مبلغ در کیف پول شما شارژ شد.")
+                except: pass
+                bot.send_message(call.message.chat.id, f"⚠️ تایید شد اما موجودی برای خرید خودکار کافی نبود.\n{MESSAGES['ORDER_ID']} {payment_id}")
 
     # Payment - Reject Payment Callback
     elif key == 'cancel_payment_by_admin':
@@ -2524,11 +2582,11 @@ def callback_query(call: CallbackQuery):
             return
         payment_status = USERS_DB.edit_payment(payment_id, approved=False)
         if payment_status:
-            user_bot.send_message(int(payment_info['telegram_id']),
-                                  f"{MESSAGES['PAYMENT_NOT_CONFIRMED']}\n{MESSAGES['ORDER_ID']} {payment_id}")
-            bot.send_message(call.message.chat.id,
-                             f"{MESSAGES['PAYMENT_NOT_CONFIRMED_ADMIN']}\n{MESSAGES['ORDER_ID']}: {payment_id}")
-            bot.delete_message(call.message.chat.id, call.message.message_id)
+            try: user_bot.send_message(int(payment_info['telegram_id']), f"{MESSAGES['PAYMENT_NOT_CONFIRMED']}\n{MESSAGES['ORDER_ID']} {payment_id}")
+            except: pass
+            bot.send_message(call.message.chat.id, f"{MESSAGES['PAYMENT_NOT_CONFIRMED_ADMIN']}\n{MESSAGES['ORDER_ID']}: {payment_id}")
+            try: bot.delete_message(call.message.chat.id, call.message.message_id)
+            except: pass
         else:
             bot.send_message(call.message.chat.id, f"{MESSAGES['ERROR_UNKNOWN']}\n{MESSAGES['ORDER_ID']}: {payment_id}")
 
@@ -2884,7 +2942,53 @@ def debug(message: Message):
         return
     bot.send_document(message.chat.id, open(debug_zip, 'rb'), caption="👹Debug")
 
+# ----------------- ADMIN COMMANDS (New Features) -----------------
+@bot.message_handler(commands=['wallet'])
+def manual_wallet(message: Message):
+    if message.chat.id not in ADMINS_ID: return
+    parts = message.text.split()
+    if len(parts) != 3:
+        bot.reply_to(message, "⚠️ راهنما: /wallet <آیدی عددی کاربر> <مبلغ>\nمثال افزایش: /wallet 123456 +50000\nمثال کاهش: /wallet 123456 -10000\nتعیین مبلغ دقیق: /wallet 123456 0")
+        return
+    
+    target_id = int(parts[1])
+    amount_str = parts[2]
+    
+    wallet = USERS_DB.find_wallet(telegram_id=target_id)
+    if not wallet:
+        bot.reply_to(message, "❌ کیف پول این کاربر یافت نشد.")
+        return
+    
+    curr = wallet[0]['balance']
+    if amount_str.startswith('+'): new_bal = curr + int(amount_str[1:])
+    elif amount_str.startswith('-'): new_bal = curr - int(amount_str[1:])
+    else: new_bal = int(amount_str)
+        
+    USERS_DB.edit_wallet(target_id, balance=new_bal)
+    bot.reply_to(message, f"✅ موجودی آیدی {target_id} تغییر یافت. موجودی جدید: {new_bal}")
+    try: user_bot.send_message(target_id, f"💳 موجودی کیف پول شما توسط پشتیبانی بروزرسانی شد.\nموجودی فعلی: {utils.rial_to_toman(new_bal)} تومان")
+    except: pass
 
+@bot.message_handler(commands=['add_discount'])
+def add_discount(message: Message):
+    if message.chat.id not in ADMINS_ID: return
+    parts = message.text.split()
+    if len(parts) != 4:
+        bot.reply_to(message, "⚠️ راهنما: /add_discount <نام کد> <درصد تخفیف> <تعداد استفاده>\nمثال: /add_discount Agent 30 100")
+        return
+    USERS_DB.add_discount_code(parts[1], int(parts[2]), int(parts[3]))
+    bot.reply_to(message, f"✅ کد تخفیف {parts[1]} با {parts[2]}% شارژ بیشتر (ظرفیت: {parts[3]}) ساخته شد.")
+
+@bot.message_handler(commands=['del_discount'])
+def del_discount(message: Message):
+    if message.chat.id not in ADMINS_ID: return
+    try:
+        code = message.text.split()[1]
+        USERS_DB.conn.cursor().execute("DELETE FROM discount_codes WHERE code=?", (code,))
+        USERS_DB.conn.commit()
+        bot.reply_to(message, f"✅ کد تخفیف حذف شد.")
+    except: bot.reply_to(message, "خطا در حذف کد.")
+    
 # ----------------------------------- Main -----------------------------------
 # Start Bot
 def start():
