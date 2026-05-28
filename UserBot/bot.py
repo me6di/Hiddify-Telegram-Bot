@@ -1,5 +1,6 @@
 import datetime
 import random
+import os
 
 import telebot
 from telebot.types import Message, CallbackQuery
@@ -136,8 +137,7 @@ def renewal_from_wallet_confirm(message: Message):
                          reply_markup=main_menu_keyboard_markup())
         return
 
-    if not renew_subscription_dict[message.chat.id]['plan_id'] or not renew_subscription_dict[message.chat.id][
-        'uuid']:
+    if not renew_subscription_dict[message.chat.id]['plan_id'] or not renew_subscription_dict[message.chat.id]['uuid']:
         bot.send_message(message.chat.id, MESSAGES['UNKNOWN_ERROR'],
                          reply_markup=main_menu_keyboard_markup())
         return
@@ -257,17 +257,11 @@ def renewal_from_wallet_confirm(message: Message):
                          f"{MESSAGES['UNKNOWN_ERROR']}\n{MESSAGES['ORDER_ID']} {order_id}",
                          reply_markup=main_menu_keyboard_markup())
         return
-    # edit_status = ADMIN_DB.edit_user(uuid=uuid, usage_limit_GB=new_usage_limit, package_days=new_package_days)
-    # edit_status = api.update(URL, uuid=uuid, usage_limit_GB=new_usage_limit, package_days=new_package_days)
-    # if not edit_status:
-    #     bot.send_message(message.chat.id, MESSAGES['UNKNOWN_ERROR'],
-    #                      reply_markup=main_menu_keyboard_markup())
-    #     return
 
     bot.send_message(message.chat.id, MESSAGES['SUCCESSFUL_RENEWAL'], reply_markup=main_menu_keyboard_markup())
     update_info_subscription(message, uuid)
-    BASE_URL = urlparse(server['url']).scheme + "://" + urlparse(server['url']).netloc
-    link = f"{BASE_URL}/{urlparse(server['url']).path.split('/')[1]}/{uuid}/"
+    BASE_URL_PANEL = urlparse(server['url']).scheme + "://" + urlparse(server['url']).netloc
+    link = f"{BASE_URL_PANEL}/{urlparse(server['url']).path.split('/')[1]}/{uuid}/"
     user_name = f"<a href='{link}'> {user_info_process['name']} </a>"
     bot_users = USERS_DB.find_user(telegram_id=message.chat.id)
     if bot_users:
@@ -280,7 +274,6 @@ def renewal_from_wallet_confirm(message: Message):
 
 
 # Next Step Buy Plan - Send Screenshot
-
 def next_step_send_screenshot(message, charge_wallet):
     if is_it_cancel(message):
         return
@@ -304,7 +297,6 @@ def next_step_send_screenshot(message, charge_wallet):
         new_file.write(downloaded_file)
 
     created_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
     payment_method = "Card"
 
     status = USERS_DB.add_payment(charge_wallet['id'], message.chat.id,
@@ -385,7 +377,6 @@ def next_step_send_name_for_buy_from_wallet(message: Message, plan):
     server = server[0]
     URL = server['url'] + API_PATH
 
-    # value = ADMIN_DB.add_default_user(name, plan['days'], plan['size_gb'],)
     sub_id = random.randint(1000000, 9999999)
     value = api.insert(URL, name=name, usage_limit_GB=plan['size_gb'], package_days=plan['days'],comment=f"HidyBot:{sub_id}")
     if not value:
@@ -424,11 +415,22 @@ def next_step_send_name_for_buy_from_wallet(message: Message, plan):
     user_info = utils.dict_process(URL, user_info)
     user_info = user_info[0]
     api_user_data = user_info_template(sub_id, server, user_info, MESSAGES['INFO_USER'])
-    bot.send_message(message.chat.id, api_user_data,
-                                 reply_markup=user_info_markup(user_info['uuid']))
     
-    BASE_URL = urlparse(server['url']).scheme + "://" + urlparse(server['url']).netloc
-    link = f"{BASE_URL}/{urlparse(server['url']).path.split('/')[1]}/{value}/"
+    # ------------------ Send Sub Link With Name and QR Code ------------------
+    base_sub = SUB_URL if SUB_URL.endswith("/") else f"{SUB_URL}/"
+    formatted_name = name.replace(' ', '_')
+    sub_link = f"{base_sub}{value}/#{formatted_name}"
+    qr_code = utils.txt_to_qr(sub_link)
+    caption_text = f"{api_user_data}\n\n🔗 لینک سابسکریپشن شما:\n<code>{sub_link}</code>"
+    
+    if qr_code:
+        bot.send_photo(message.chat.id, photo=qr_code, caption=caption_text, reply_markup=user_info_markup(user_info['uuid']))
+    else:
+        bot.send_message(message.chat.id, caption_text, reply_markup=user_info_markup(user_info['uuid']))
+    # --------------------------------------------------------------------------
+
+    BASE_URL_PANEL = urlparse(server['url']).scheme + "://" + urlparse(server['url']).netloc
+    link = f"{BASE_URL_PANEL}/{urlparse(server['url']).path.split('/')[1]}/{value}/"
     user_name = f"<a href='{link}'> {name} </a>"
     bot_users = USERS_DB.find_user(telegram_id=message.chat.id)
     if bot_users:
@@ -460,7 +462,6 @@ def next_step_send_name_for_get_free_test(message: Message, server_id):
         return
     server = server[0]
     URL = server['url'] + API_PATH
-    # uuid = ADMIN_DB.add_default_user(name, test_user_days, test_user_size_gb, int(PANEL_ADMIN_ID), test_user_comment)
     uuid = api.insert(URL, name=name, usage_limit_GB=settings['test_sub_size_gb'], package_days=settings['test_sub_days'],
                       comment=test_user_comment)
     if not uuid:
@@ -486,10 +487,22 @@ def next_step_send_name_for_get_free_test(message: Message, server_id):
     user_info = utils.dict_process(URL, user_info)
     user_info = user_info[0]
     api_user_data = user_info_template(non_order_id, server, user_info, MESSAGES['INFO_USER'])
-    bot.send_message(message.chat.id, api_user_data,
-                                 reply_markup=user_info_markup(user_info['uuid']))
-    BASE_URL = urlparse(server['url']).scheme + "://" + urlparse(server['url']).netloc
-    link = f"{BASE_URL}/{urlparse(server['url']).path.split('/')[1]}/{uuid}/"
+    
+    # ------------------ Send Sub Link With Name and QR Code ------------------
+    base_sub = SUB_URL if SUB_URL.endswith("/") else f"{SUB_URL}/"
+    formatted_name = name.replace(' ', '_')
+    sub_link = f"{base_sub}{uuid}/#{formatted_name}"
+    qr_code = utils.txt_to_qr(sub_link)
+    caption_text = f"{api_user_data}\n\n🔗 لینک سابسکریپشن شما:\n<code>{sub_link}</code>"
+    
+    if qr_code:
+        bot.send_photo(message.chat.id, photo=qr_code, caption=caption_text, reply_markup=user_info_markup(user_info['uuid']))
+    else:
+        bot.send_message(message.chat.id, caption_text, reply_markup=user_info_markup(user_info['uuid']))
+    # --------------------------------------------------------------------------
+
+    BASE_URL_PANEL = urlparse(server['url']).scheme + "://" + urlparse(server['url']).netloc
+    link = f"{BASE_URL_PANEL}/{urlparse(server['url']).path.split('/')[1]}/{uuid}/"
     user_name = f"<a href='{link}'> {name} </a>"
     bot_users = USERS_DB.find_user(telegram_id=message.chat.id)
     if bot_users:
@@ -928,22 +941,39 @@ def callback_query(call: CallbackQuery):
                 bot.send_message(call.message.chat.id, f"{message}",
                                  reply_markup=main_menu_keyboard_markup())
 
-    # User Configs - Subscription Configs Callback
+    # User Configs - Subscription Configs Callback (REWRITTEN FOR DYNAMIC URL AND #NAME)
     elif key == "conf_sub_url":
-        sub = utils.sub_links(value)
-        if not sub:
+        sub_info = utils.find_order_subscription_by_uuid(value)
+        if not sub_info:
             bot.send_message(call.message.chat.id, MESSAGES['UNKNOWN_ERROR'])
             return
-        qr_code = utils.txt_to_qr(sub['sub_link'])
+        server = USERS_DB.find_server(id=sub_info['server_id'])
+        if not server:
+            bot.send_message(call.message.chat.id, MESSAGES['UNKNOWN_ERROR'])
+            return
+        server = server[0]
+        URL = server['url'] + API_PATH
+        user = api.find(URL, uuid=value)
+        if not user:
+            bot.send_message(call.message.chat.id, MESSAGES['UNKNOWN_ERROR'])
+            return
+            
+        user_name = user.get('name', 'User') or 'User'
+        formatted_name = user_name.replace(' ', '_')
+        base_sub = SUB_URL if SUB_URL.endswith("/") else f"{SUB_URL}/"
+        my_sub_link = f"{base_sub}{value}/#{formatted_name}"
+        
+        qr_code = utils.txt_to_qr(my_sub_link)
         if not qr_code:
             bot.send_message(call.message.chat.id, MESSAGES['UNKNOWN_ERROR'])
             return
         bot.send_photo(
             call.message.chat.id,
             photo=qr_code,
-            caption=f"{KEY_MARKUP['CONFIGS_SUB']}\n<code>{sub['sub_link']}</code>",
+            caption=f"{KEY_MARKUP['CONFIGS_SUB']}\n<code>{my_sub_link}</code>",
             reply_markup=main_menu_keyboard_markup()
         )
+
     # User Configs - Base64 Subscription Configs Callback
     elif key == "conf_sub_url_b64":
         sub = utils.sub_links(value)
