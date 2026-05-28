@@ -165,12 +165,11 @@ def users_bot_management_markup():
                InlineKeyboardButton(KEY_MARKUP['USERS_BOT_SETTINGS'], callback_data="users_bot_settings:None"))
     markup.add(InlineKeyboardButton(KEY_MARKUP['USERS_BOT_OWNER_INFO'], callback_data="users_bot_owner_info:None"),
                InlineKeyboardButton(KEY_MARKUP['USERS_BOT_SEND_MSG_USERS'], callback_data="users_bot_send_msg_users:None"))
-    # اضافه شدن دکمه مدیریت کدهای تخفیف
+    # اضافه شدن کلید هوشمند مدیریت تخفیف‌ها به پنل ادمین
     markup.add(InlineKeyboardButton("🎁 مدیریت کدهای تخفیف", callback_data="admin_discount_management:None"))
     markup.add(InlineKeyboardButton(KEY_MARKUP['BACK'], callback_data="del_msg:None"))
     return markup
 
-# تابع جدید برای منوی اختصاصی تخفیف‌ها
 def admin_discount_markup():
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
@@ -178,6 +177,7 @@ def admin_discount_markup():
     markup.add(InlineKeyboardButton("❌ حذف کد تخفیف", callback_data="admin_del_discount_step1:None"))
     markup.add(InlineKeyboardButton("🔙 برگشت", callback_data="users_bot_management_menu:None"))
     return markup
+    
 # Users Bot Users List Management - Inline Keyboard Markup
 def users_bot_users_management_markup(value=None):
     markup = InlineKeyboardMarkup()
