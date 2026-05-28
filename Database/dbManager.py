@@ -118,7 +118,7 @@ class UserDBManager:
                         "default_server BOOLEAN NOT NULL DEFAULT 0)")
             self.conn.commit()
             
-            # --- New Table for Discount Codes ---
+            # --- Table for Discount Codes ---
             cur.execute("CREATE TABLE IF NOT EXISTS discount_codes ("
                         "code TEXT PRIMARY KEY,"
                         "discount_percent INTEGER NOT NULL,"
@@ -161,8 +161,7 @@ class UserDBManager:
             rows = cur.fetchall()
             rows = [dict(zip([key[0] for key in cur.description], row)) for row in rows]
             return rows
-        except Error as e:
-            return None
+        except Error as e: return None
 
     def find_user(self, **kwargs):
         if len(kwargs) != 1: return None
@@ -552,6 +551,49 @@ class UserDBManager:
             return True
         except Error as e: return False
         finally: cur.close()
+
+    # --- تابع مورد نیاز خط ۳۲۱ فایل config.py ---
+    def set_default_configs(self):
+        self.add_bool_config("visible_hiddify_hyperlink", True)
+        self.add_bool_config("three_random_num_price", False)
+        self.add_bool_config("force_join_channel", False)
+        self.add_bool_config("panel_auto_backup", True)
+        self.add_bool_config("bot_auto_backup", True)
+        self.add_bool_config("test_subscription", True)
+        self.add_bool_config("reminder_notification", True)
+        self.add_bool_config("renewal_subscription_status", True)
+        self.add_bool_config("buy_subscription_status", True)
+        self.add_bool_config("visible_conf_dir", False)
+        self.add_bool_config("visible_conf_sub_auto", True)
+        self.add_bool_config("visible_conf_sub_url", False)
+        self.add_bool_config("visible_conf_sub_url_b64", False)
+        self.add_bool_config("visible_conf_clash", False)
+        self.add_bool_config("visible_conf_hiddify", False)
+        self.add_bool_config("visible_conf_sub_sing_box", False)
+        self.add_bool_config("visible_conf_sub_full_sing_box", False)
+        self.add_str_config("bot_admin_id", None)
+        self.add_str_config("bot_token_admin", None)
+        self.add_str_config("bot_token_client", None)
+        self.add_str_config("bot_lang", None)
+        self.add_str_config("card_number", None)
+        self.add_str_config("card_holder", None)
+        self.add_str_config("support_username", None)
+        self.add_str_config("channel_id", None)
+        self.add_str_config("msg_user_start", None)
+        self.add_str_config("msg_manual_android", None)
+        self.add_str_config("msg_manual_ios", None)
+        self.add_str_config("msg_manual_windows", None)
+        self.add_str_config("msg_manual_mac", None)
+        self.add_str_config("msg_manual_linux", None)
+        self.add_str_config("msg_faq", None)
+        self.add_int_config("min_deposit_amount", 10000)
+        self.add_int_config("reminder_notification_days", 3)
+        self.add_int_config("reminder_notification_usage", 3)
+        self.add_int_config("test_sub_days", 1)
+        self.add_int_config("test_sub_size_gb", 1)
+        self.add_int_config("advanced_renewal_days", 3)
+        self.add_int_config("advanced_renewal_usage", 3)
+        self.add_int_config("renewal_method", 1)
 
     def add_wallet(self, telegram_id):
         cur = self.conn.cursor()
