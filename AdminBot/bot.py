@@ -1691,8 +1691,8 @@ def callback_query(call: CallbackQuery):
 
     # ----------------------------------- Users Bot Management Callbacks -----------------------------------
     elif key == "users_bot_management_menu":
-        bot.edit_message_text(KEY_MARKUP['USERS_BOT_MANAGEMENT'], call.message.chat.id, call.message.message_id,
-                                      reply_markup=markups.users_bot_management_markup())
+        bot.edit_message_text(MESSAGES.get('USERS_BOT_MANAGEMENT', 'بخش مدیریت ربات کاربران:'), call.message.chat.id, call.message.message_id,
+                              reply_markup=markups.users_bot_management_markup())
         
     elif key == "bot_users_list_management":
          bot.edit_message_text(KEY_MARKUP['BOT_USERS_MANAGEMENT'], call.message.chat.id, call.message.message_id,
@@ -2828,10 +2828,7 @@ def callback_query(call: CallbackQuery):
         msg = bot.send_message(call.message.chat.id, "لطفاً نام دقیق کد تخفیفی که می‌خواهید حذف کنید را بفرستید:")
         bot.register_next_step_handler(msg, admin_del_discount_step2)
 
-    elif key == "users_bot_management_menu":
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
-                              text=MESSAGES.get('USERS_BOT_MANAGEMENT', 'بخش مدیریت ربات کاربران:'), reply_markup=markups.users_bot_management_markup())
-                              
+
     elif key == "del_msg":
         bot.delete_message(call.message.chat.id, call.message.message_id)
 
@@ -2907,12 +2904,13 @@ def search_user(message: Message):
 
 
 # Users Bot Management Message Handler
-@bot.message_handler(func=lambda message: message.text == KEY_MARKUP['USERS_BOT_MANAGEMENT'])
+@bot.message_handler(func=lambda message: message.text == KEY_MARKUP.get('USERS_BOT_MANAGEMENT', 'مدیریت ربات کاربران') or message.text == 'مدیریت ربات کاربران')
 def users_bot_management(message: Message):
+    if message.chat.id not in ADMINS_ID: return
     if not CLIENT_TOKEN:
-        bot.send_message(message.chat.id, MESSAGES['ERROR_CLIENT_TOKEN'])
+        bot.send_message(message.chat.id, MESSAGES.get('ERROR_CLIENT_TOKEN', 'توکن ربات کاربر تنظیم نشده است.'))
         return
-    bot.send_message(message.chat.id, KEY_MARKUP['USERS_BOT_MANAGEMENT'],
+    bot.send_message(message.chat.id, MESSAGES.get('USERS_BOT_MANAGEMENT', 'بخش مدیریت ربات کاربران:'), 
                      reply_markup=markups.users_bot_management_markup())
     
 # Server Management Message Handler
@@ -2922,14 +2920,6 @@ def servers_management(message: Message):
     bot.send_message(message.chat.id, KEY_MARKUP['SERVERS_MANAGEMENT'],
                      reply_markup=markups.servers_management_markup(servers))
 
-# مدیریت ربات کاربران
-@bot.message_handler(func=lambda message: message.text == KEY_MARKUP['USERS_BOT_MANAGEMENT'])
-def users_bot_management_menu(message: Message):
-    if message.chat.id not in ADMINS_ID: return
-    if not CLIENT_TOKEN:
-        bot.send_message(message.chat.id, MESSAGES.get('ERROR_CLIENT_TOKEN', 'توکن ربات کاربر تنظیم نشده است.'))
-        return
-    bot.send_message(message.chat.id, MESSAGES.get('USERS_BOT_MANAGEMENT', 'بخش مدیریت ربات کاربران:'), reply_markup=markups.users_bot_management_markup())
 
 # About Message Handler
 @bot.message_handler(func=lambda message: message.text == KEY_MARKUP['ABOUT_BOT'])
