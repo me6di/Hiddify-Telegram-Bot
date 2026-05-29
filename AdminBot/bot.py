@@ -1132,7 +1132,42 @@ def users_bot_send_message_to_user(message: Message, telegram_id):
                         f"{MESSAGES['MESSAGE_FROM_ADMIN']}\n{MESSAGES['MESSAGE_TEXT']} {message.text}", reply_markup=markups.send_message_to_user_markup(message.chat.id))
     bot.send_message(message.chat.id, MESSAGES['MESSAGE_SENDED'],
                         reply_markup=markups.main_menu_keyboard_markup())
+
+# ----------------- Discount Management Steps -----------------
+def admin_add_discount_step2(message: Message):
+    if message.text == KEY_MARKUP.get('CANCEL', 'انصراف'):
+        bot.send_message(message.chat.id, MESSAGES.get('CANCELED', 'عملیات لغو شد.'), reply_markup=markups.main_menu_keyboard_markup())
+        return
     
+    parts = message.text.split()
+    if len(parts) != 3:
+        bot.send_message(message.chat.id, "❌ فرمت اشتباه است. لطفاً دقیقاً مانند مثال ارسال کنید.")
+        return
+        
+    code = parts[0]
+    try:
+        percent = int(parts[1])
+        limit = int(parts[2])
+    except ValueError:
+        bot.send_message(message.chat.id, "❌ درصد تخفیف و تعداد مجاز باید عدد باشند.")
+        return
+        
+    if USERS_DB.add_discount_code(code, percent, limit):
+        bot.send_message(message.chat.id, f"✅ کد تخفیف <b>{code}</b> با <b>{percent}%</b> تخفیف و ظرفیت <b>{limit}</b> بار استفاده با موفقیت ساخته شد.")
+    else:
+        bot.send_message(message.chat.id, "❌ خطا در ساخت کد تخفیف (احتمالاً این کد از قبل وجود دارد).")
+
+def admin_del_discount_step2(message: Message):
+    if message.text == KEY_MARKUP.get('CANCEL', 'انصراف'):
+        bot.send_message(message.chat.id, MESSAGES.get('CANCELED', 'عملیات لغو شد.'), reply_markup=markups.main_menu_keyboard_markup())
+        return
+        
+    code = message.text.strip()
+    if USERS_DB.delete_discount_code(code):
+        bot.send_message(message.chat.id, f"✅ کد تخفیف <b>{code}</b> با موفقیت حذف شد.")
+    else:
+        bot.send_message(message.chat.id, "❌ خطا در حذف کد (شاید این کد وجود ندارد).")
+
 # ----------------------------------- Callbacks -----------------------------------
 # Callback Handler for Inline Buttons
 @bot.callback_query_handler(func=lambda call: True)
@@ -2780,6 +2815,19 @@ def callback_query(call: CallbackQuery):
         bot.delete_message(call.message.chat.id, msg_wait.message_id)
         bot.send_message(call.message.chat.id, server_status_data, reply_markup=markups.main_menu_keyboard_markup())
     
+    elif key == "admin_discount_management":
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
+                              text="🎁 به پنل مدیریت کدهای تخفیف خوش آمدید.\n\nلطفا یک گزینه را انتخاب کنید:",
+                              reply_markup=markups.admin_discount_markup())
+
+    elif key == "admin_add_discount_step1":
+        msg = bot.send_message(call.message.chat.id, "لطفاً اطلاعات کد تخفیف را با فرمت زیر ارسال کنید:\n\n<code>نام_کد درصد_تخفیف تعداد_مجاز</code>\n\nمثال:\n<code>YALDA 20 100</code>\n(یعنی کد YALDA با 20 درصد تخفیف و مجاز برای 100 بار استفاده)")
+        bot.register_next_step_handler(msg, admin_add_discount_step2)
+
+    elif key == "admin_del_discount_step1":
+        msg = bot.send_message(call.message.chat.id, "لطفاً نام دقیق کد تخفیفی که می‌خواهید حذف کنید را بفرستید:")
+        bot.register_next_step_handler(msg, admin_del_discount_step2)
+        
     elif key == "del_msg":
         bot.delete_message(call.message.chat.id, call.message.message_id)
 

@@ -154,7 +154,13 @@ class UserDBManager:
             self.conn.commit()
             logging.info("Servers table created successfully!")
 
-
+        # --- جدول اختصاصی کدهای تخفیف ---
+            cur.execute("CREATE TABLE IF NOT EXISTS discount_codes ("
+                        "code TEXT PRIMARY KEY,"
+                        "discount_percent INTEGER NOT NULL,"
+                        "usage_limit INTEGER NOT NULL DEFAULT 1,"
+                        "used_count INTEGER NOT NULL DEFAULT 0)")
+            self.conn.commit()
         except Error as e:
             logging.error(f"Error while creating user table \n Error:{e}")
             return False
@@ -973,7 +979,45 @@ class UserDBManager:
             logging.error(f"Error while deleting server {kwargs} \n Error:{e}")
             return False
         
-    
+    # ----------------- متدهای کدهای تخفیف -----------------
+    def use_discount_code(self, code):
+        cur = self.conn.cursor()
+        cur.execute("SELECT * FROM discount_codes WHERE code=?", (code,))
+        row = cur.fetchone()
+        if not row: return None
+        
+        data = dict(zip([key[0] for key in cur.description], row))
+        if data['used_count'] < data['usage_limit']:
+            cur.execute("UPDATE discount_codes SET used_count = used_count + 1 WHERE code=?", (code,))
+            self.conn.commit()
+            return data['discount_percent']
+        return None
+
+    def add_discount_code(self, code, percent, limit=1):
+        cur = self.conn.cursor()
+        try:
+            cur.execute("INSERT INTO discount_codes(code, discount_percent, usage_limit) VALUES(?,?,?)", (code, percent, limit))
+            self.conn.commit()
+            return True
+        except: return False
+
+    def select_discount_codes(self):
+        cur = self.conn.cursor()
+        try:
+            cur.execute("SELECT * FROM discount_codes")
+            rows = cur.fetchall()
+            if not rows: return []
+            return [dict(zip([key[0] for key in cur.description], row)) for row in rows]
+        except Error as e: return []
+
+    def delete_discount_code(self, code):
+        cur = self.conn.cursor()
+        try:
+            cur.execute("DELETE FROM discount_codes WHERE code=?", (code,))
+            self.conn.commit()
+            return True
+        except Error as e: return False
+        
     def backup_to_json(self, backup_dir):
         try:
 

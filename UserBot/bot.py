@@ -5,6 +5,7 @@ import logging
 import telebot
 from telebot.types import Message, CallbackQuery
 from urllib.parse import urlparse
+import html
 
 from config import CLIENT_TOKEN, PANEL_URL, SUB_URL, ADMINS_ID, API_PATH
 from UserBot.markups import (
@@ -154,7 +155,8 @@ def next_step_apply_discount(message: Message):
 def next_step_send_screenshot(message, payment_id):
     if is_it_cancel(message): return
     state = user_charge_state.get(message.chat.id)
-    if not state: return bot.send_message(message.chat.id, MESSAGES.get('UNKNOWN_ERROR', 'خطا'), reply_markup=main_menu_keyboard_markup())
+    if not state: 
+        return bot.send_message(message.chat.id, MESSAGES.get('UNKNOWN_ERROR', 'خطا در یافتن سشن.'), reply_markup=main_menu_keyboard_markup())
 
     if message.content_type != 'photo':
         msg = bot.send_message(message.chat.id, MESSAGES.get('ERROR_TYPE_SEND_SCREENSHOT', 'فقط عکس بفرستید.'), reply_markup=cancel_markup())
@@ -168,7 +170,9 @@ def next_step_send_screenshot(message, payment_id):
         
         receiptions_path = os.path.join(os.getcwd(), 'UserBot', 'Receiptions')
         if not os.path.exists(receiptions_path): os.makedirs(receiptions_path)
-        with open(os.path.join(receiptions_path, file_name), 'wb') as new_file:
+        
+        file_path = os.path.join(receiptions_path, file_name)
+        with open(file_path, 'wb') as new_file:
             new_file.write(downloaded_file)
 
         plan_part = f"Plan:{state['plan_id']}" if state.get('plan_id') else f"Wallet:{state['amount']}"
@@ -177,16 +181,31 @@ def next_step_send_screenshot(message, payment_id):
 
         if USERS_DB.add_payment(state['id'], message.chat.id, state['pay_amount'], payment_method, file_name, created_at):
             user_data = USERS_DB.find_user(telegram_id=message.chat.id)[0]
-            admin_caption = f"📥 <b>درخواست تراکنش جدید</b>\n👤 کاربر: {user_data['full_name']}\n🆔 آیدی: <code>{user_data['telegram_id']}</code>\n---------------------\n🎟 کد تخفیف: <b>{state.get('discount_code', '-')}</b>\n💵 پرداختی: <code>{utils.rial_to_toman(state['pay_amount'])}</code> {MESSAGES.get('TOMAN', 'تومان')}\n💰 شارژ دیتابیس: <b>{utils.rial_to_toman(state['amount'])}</b> {MESSAGES.get('TOMAN', 'تومان')}"
             
+            # فیلتر کردن اسم کاربر برای جلوگیری از خطای تلگرام
+            safe_name = html.escape(user_data['full_name']) if user_data['full_name'] else str(user_data['telegram_id'])
+            
+            admin_caption = f"📥 <b>درخواست تراکنش جدید</b>\n👤 کاربر: {safe_name}\n🆔 آیدی: <code>{user_data['telegram_id']}</code>\n---------------------\n🎟 کد تخفیف: <b>{state.get('discount_code', '-')}</b>\n💵 پرداختی: <code>{utils.rial_to_toman(state['pay_amount'])}</code> {MESSAGES.get('TOMAN', 'تومان')}\n💰 شارژ دیتابیس: <b>{utils.rial_to_toman(state['amount'])}</b> {MESSAGES.get('TOMAN', 'تومان')}"
+            
+            # ارسال ایمن رسید برای ادمین‌ها با هندلینگ خطا
             for ADMIN in ADMINS_ID:
-                try: admin_bot.send_photo(ADMIN, open(os.path.join(receiptions_path, file_name), 'rb'), caption=admin_caption, reply_markup=confirm_payment_by_admin(state['id']))
-                except: pass
-            bot.send_message(message.chat.id, "✅ رسید ثبت شد و در انتظار تایید است.", reply_markup=main_menu_keyboard_markup())
-        else: bot.send_message(message.chat.id, MESSAGES.get('UNKNOWN_ERROR', 'خطا'), reply_markup=main_menu_keyboard_markup())
-    except:
-        bot.send_message(message.chat.id, MESSAGES.get('UNKNOWN_ERROR', 'خطا'), reply_markup=main_menu_keyboard_markup())
-
+                try: 
+                    with open(file_path, 'rb') as photo_file:
+                        admin_bot.send_photo(ADMIN, photo_file, caption=admin_caption, reply_markup=confirm_payment_by_admin(state['id']))
+                except Exception as admin_err: 
+                    logging.error(f"Error sending receipt to ADMIN {ADMIN}: {admin_err}")
+                    
+            bot.send_message(message.chat.id, "✅ رسید شما با موفقیت ثبت شد و در انتظار تایید ادمین است.", reply_markup=main_menu_keyboard_markup())
+            
+            # پاک کردن حافظه موقت پس از اتمام
+            if message.chat.id in user_charge_state:
+                del user_charge_state[message.chat.id]
+        else: 
+            bot.send_message(message.chat.id, MESSAGES.get('UNKNOWN_ERROR', 'خطا در ثبت دیتابیس.'), reply_markup=main_menu_keyboard_markup())
+    except Exception as e:
+        logging.error(f"Screenshot Error: {e}")
+        bot.send_message(message.chat.id, MESSAGES.get('UNKNOWN_ERROR', 'خطای سیستمی رخ داد.'), reply_markup=main_menu_keyboard_markup())
+        
 # ----------------- Subscriptions Area -----------------
 def buy_from_wallet_confirm(message: Message, plan):
     if not plan: return bot.send_message(message.chat.id, MESSAGES['UNKNOWN_ERROR'], reply_markup=main_menu_keyboard_markup())

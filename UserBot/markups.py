@@ -62,11 +62,11 @@ def confirm_buy_plan_markup(plan_id, renewal=False, uuid=None):
         markup.add(InlineKeyboardButton(KEY_MARKUP.get('BACK', 'برگشت'), callback_data=f"back_to_plans:None"))
     return markup
 
-def send_screenshot_markup(plan_id):
+def send_screenshot_markup(payment_id):
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
-    markup.add(InlineKeyboardButton(KEY_MARKUP['SEND_SCREENSHOT'], callback_data=f"send_screenshot:{plan_id}"))
-    markup.add(InlineKeyboardButton(KEY_MARKUP['CANCEL'], callback_data=f"cancel_increase_wallet_balance:{plan_id}"))
+    markup.add(InlineKeyboardButton(KEY_MARKUP['SEND_SCREENSHOT'], callback_data=f"send_screenshot:{payment_id}"))
+    markup.add(InlineKeyboardButton(KEY_MARKUP['CANCEL'], callback_data=f"cancel_increase_wallet_balance:{payment_id}"))
     return markup
 
 def plans_list_markup(plans, renewal=False, uuid=None):
