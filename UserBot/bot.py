@@ -13,7 +13,8 @@ from UserBot.markups import (
     user_info_non_sub_markup, user_subscriptions_list_markup, 
     plans_list_markup, confirm_buy_plan_markup, send_screenshot_markup,
     wallet_info_markup, wallet_info_specific_markup, servers_list_markup,
-    force_join_channel_markup, users_bot_management_settings_panel_manual_markup
+    force_join_channel_markup, users_bot_management_settings_panel_manual_markup,
+    confirm_payment_by_admin
 )
 from UserBot.templates import (
     user_info_template, wallet_info_template, plan_info_template, 
@@ -205,7 +206,7 @@ def next_step_send_screenshot(message, payment_id):
     except Exception as e:
         logging.error(f"Screenshot Error: {e}")
         bot.send_message(message.chat.id, MESSAGES.get('UNKNOWN_ERROR', 'خطای سیستمی رخ داد.'), reply_markup=main_menu_keyboard_markup())
-        
+
 # ----------------- Subscriptions Area -----------------
 def buy_from_wallet_confirm(message: Message, plan):
     if not plan: return bot.send_message(message.chat.id, MESSAGES['UNKNOWN_ERROR'], reply_markup=main_menu_keyboard_markup())
