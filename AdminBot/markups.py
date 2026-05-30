@@ -175,8 +175,17 @@ def admin_discount_markup():
     markup.row_width = 1
     markup.add(InlineKeyboardButton("📋 لیست کدهای تخفیف", callback_data="admin_discount_list:None"))
     markup.add(InlineKeyboardButton("➕ افزودن کد تخفیف جدید", callback_data="admin_add_discount_step1:None"))
-    markup.add(InlineKeyboardButton("❌ حذف کد تخفیف", callback_data="admin_del_discount_step1:None"))
     markup.add(InlineKeyboardButton("🔙 برگشت", callback_data="users_bot_management_menu:None"))
+    return markup
+
+def discount_list_markup(codes):
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1
+    if codes:
+        for code in codes:
+            # ساخت دکمه حذف اختصاصی برای هر کد
+            markup.add(InlineKeyboardButton(f"❌ حذف کد: {code['code']}", callback_data=f"admin_del_discount:{code['code']}"))
+    markup.add(InlineKeyboardButton("🔙 برگشت", callback_data="admin_discount_management:None"))
     return markup
 
 # Users Bot Users List Management - Inline Keyboard Markup

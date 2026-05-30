@@ -2913,7 +2913,7 @@ def callback_query(call: CallbackQuery):
     elif key == "admin_discount_list":
         codes = USERS_DB.select_discount_codes()
         if not codes:
-            bot.send_message(call.message.chat.id, "❌ هیچ کد تخفیفی در سیستم ثبت نشده است.")
+            bot.edit_message_text("❌ هیچ کد تخفیفی در سیستم ثبت نشده است.", call.message.chat.id, call.message.message_id, reply_markup=markups.admin_discount_markup())
             return
             
         msg = "📋 <b>لیست کدهای تخفیف فعال:</b>\n\n"
@@ -2923,7 +2923,27 @@ def callback_query(call: CallbackQuery):
             msg += f"👥 <b>استفاده شده:</b> {code['used_count']} از {code['usage_limit']}\n"
             msg += "➖" * 12 + "\n"
             
-        bot.send_message(call.message.chat.id, msg)
+        bot.edit_message_text(msg, call.message.chat.id, call.message.message_id, reply_markup=markups.discount_list_markup(codes))
+
+    elif key == "admin_del_discount":
+        code_to_delete = value
+        if USERS_DB.delete_discount_code(code_to_delete):
+            bot.answer_callback_query(call.id, f"✅ کد {code_to_delete} با موفقیت حذف شد.", show_alert=True)
+        else:
+            bot.answer_callback_query(call.id, "❌ خطا در حذف کد.", show_alert=True)
+        
+        # رفرش کردن خودکار لیست بعد از حذف کد
+        codes = USERS_DB.select_discount_codes()
+        if not codes:
+            bot.edit_message_text("❌ هیچ کد تخفیفی در سیستم ثبت نشده است.", call.message.chat.id, call.message.message_id, reply_markup=markups.admin_discount_markup())
+        else:
+            msg = "📋 <b>لیست کدهای تخفیف فعال:</b>\n\n"
+            for code in codes:
+                msg += f"🎟 <b>کد:</b> <code>{code['code']}</code>\n"
+                msg += f"🔻 <b>درصد تخفیف:</b> {code['discount_percent']}%\n"
+                msg += f"👥 <b>استفاده شده:</b> {code['used_count']} از {code['usage_limit']}\n"
+                msg += "➖" * 12 + "\n"
+            bot.edit_message_text(msg, call.message.chat.id, call.message.message_id, reply_markup=markups.discount_list_markup(codes))
         
     elif key == "admin_add_discount_step1":
         msg = bot.send_message(call.message.chat.id, "لطفاً اطلاعات کد تخفیف را با فرمت زیر ارسال کنید:\n\n<code>نام_کد درصد_تخفیف تعداد_مجاز</code>\n\nمثال:\n<code>YALDA 20 100</code>\n(یعنی کد YALDA با 20 درصد تخفیف و مجاز برای 100 بار استفاده)")
