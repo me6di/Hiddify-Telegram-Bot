@@ -1108,6 +1108,34 @@ def edit_wallet_balance(message: Message,telegram_id):
     bot.send_message(message.chat.id, MESSAGES['SUCCESS_UPDATE_DATA'], reply_markup=markups.main_menu_keyboard_markup())
     user_bot.send_message(telegram_id, f"{MESSAGES['WALLET_BALANCE_CHANGED_BY_ADMIN_P1']} {message.text} {MESSAGES['WALLET_BALANCE_CHANGED_BY_ADMIN_P2']}")
     
+def increase_wallet_balance_step(message: Message, telegram_id):
+    if is_it_cancel(message):
+        return
+    if not is_it_digit(message, markup=markups.while_edit_user_markup()):
+        bot.register_next_step_handler(message, increase_wallet_balance_step, telegram_id)
+        return
+        
+    add_amount = utils.toman_to_rial(message.text)
+    wallet = USERS_DB.find_wallet(telegram_id=int(telegram_id))
+    if not wallet:
+        USERS_DB.add_wallet(telegram_id=int(telegram_id))
+        wallet = USERS_DB.find_wallet(telegram_id=int(telegram_id))
+        
+    current_balance = int(wallet[0]['balance'])
+    new_balance = current_balance + int(add_amount)
+    
+    status = USERS_DB.edit_wallet(telegram_id=int(telegram_id), balance=new_balance)
+    if not status:
+        bot.send_message(message.chat.id, MESSAGES.get('UNKNOWN_ERROR', 'خطا در ارتباط با دیتابیس رخ داد.'), reply_markup=markups.main_menu_keyboard_markup())
+        return
+        
+    bot.send_message(message.chat.id, f"✅ مبلغ {message.text} تومان با موفقیت به کیف پول کاربر اضافه شد.\n💳 موجودی جدید کاربر: {utils.rial_to_toman(new_balance)} تومان", reply_markup=markups.main_menu_keyboard_markup())
+    
+    # ارسال پیام اطلاع‌رسانی به کاربر
+    try:
+        user_bot.send_message(int(telegram_id), f"🎁 کاربر گرامی، کیف پول شما از طرف مدیریت به مبلغ {message.text} تومان شارژ شد.\n💳 موجودی فعلی شما: {utils.rial_to_toman(new_balance)} تومان")
+    except:
+        pass
 
 
 def send_message_to_user(message: Message, payment_id):
@@ -1888,6 +1916,11 @@ def callback_query(call: CallbackQuery):
                             reply_markup=markups.while_edit_user_markup())
         bot.register_next_step_handler(call.message, edit_wallet_balance, value)
     
+    elif key == "users_bot_wallet_increase_balance":
+        bot.send_message(call.message.chat.id, "💰 لطفا مبلغی که می‌خواهید به کیف پول این کاربر اضافه شود را (به تومان) وارد کنید:",
+                         reply_markup=markups.while_edit_user_markup())
+        bot.register_next_step_handler(call.message, increase_wallet_balance_step, value)
+
     elif key == "users_bot_reset_test":
         users = USERS_DB.find_user(telegram_id=int(value))
         if not users:
@@ -2597,7 +2630,7 @@ def callback_query(call: CallbackQuery):
             
             bot.send_message(call.message.chat.id,
                              f"✅ تایید شد.\nمبلغ شارژ شده: {utils.rial_to_toman(virtual_add)}\n🎁 کد تخفیف استفاده شده: {discount_code}\n{MESSAGES['ORDER_ID']} {payment_id}")
-                             
+
     # Payment - Reject Payment Callback
     elif key == 'cancel_payment_by_admin':
         if not CLIENT_TOKEN:
@@ -2877,6 +2910,21 @@ def callback_query(call: CallbackQuery):
                               text="🎁 به پنل مدیریت کدهای تخفیف خوش آمدید.\n\nلطفا یک گزینه را انتخاب کنید:",
                               reply_markup=markups.admin_discount_markup())
 
+    elif key == "admin_discount_list":
+        codes = USERS_DB.select_discount_codes()
+        if not codes:
+            bot.send_message(call.message.chat.id, "❌ هیچ کد تخفیفی در سیستم ثبت نشده است.")
+            return
+            
+        msg = "📋 <b>لیست کدهای تخفیف فعال:</b>\n\n"
+        for code in codes:
+            msg += f"🎟 <b>کد:</b> <code>{code['code']}</code>\n"
+            msg += f"🔻 <b>درصد تخفیف:</b> {code['discount_percent']}%\n"
+            msg += f"👥 <b>استفاده شده:</b> {code['used_count']} از {code['usage_limit']}\n"
+            msg += "➖" * 12 + "\n"
+            
+        bot.send_message(call.message.chat.id, msg)
+        
     elif key == "admin_add_discount_step1":
         msg = bot.send_message(call.message.chat.id, "لطفاً اطلاعات کد تخفیف را با فرمت زیر ارسال کنید:\n\n<code>نام_کد درصد_تخفیف تعداد_مجاز</code>\n\nمثال:\n<code>YALDA 20 100</code>\n(یعنی کد YALDA با 20 درصد تخفیف و مجاز برای 100 بار استفاده)")
         bot.register_next_step_handler(msg, admin_add_discount_step2)

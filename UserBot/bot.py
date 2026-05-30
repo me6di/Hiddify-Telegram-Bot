@@ -186,9 +186,11 @@ def next_step_send_screenshot(message, payment_id):
             # فیلتر کردن اسم کاربر برای جلوگیری از خطای تلگرام
             safe_name = html.escape(user_data['full_name']) if user_data['full_name'] else str(user_data['telegram_id'])
             
-            admin_caption = f"📥 <b>درخواست تراکنش جدید</b>\n👤 کاربر: {safe_name}\n🆔 آیدی: <code>{user_data['telegram_id']}</code>\n---------------------\n🎟 کد تخفیف: <b>{state.get('discount_code', '-')}</b>\n💵 پرداختی: <code>{utils.rial_to_toman(state['pay_amount'])}</code> {MESSAGES.get('TOMAN', 'تومان')}\n💰 شارژ دیتابیس: <b>{utils.rial_to_toman(state['amount'])}</b> {MESSAGES.get('TOMAN', 'تومان')}"
+            username_text = f"@{user_data['username']}" if user_data.get('username') else "تنظیم نشده ❌"
+            admin_caption = f"📥 <b>درخواست تراکنش جدید</b>\n👤 نام کاربر: {safe_name}\n🆔 آیدی عددی: <code>{user_data['telegram_id']}</code>\n💬 یوزرنیم: {username_text}\n---------------------\n🎟 کد تخفیف: <b>{state.get('discount_code', '-')}</b>\n💵 پرداختی: <code>{utils.rial_to_toman(state['pay_amount'])}</code> {MESSAGES.get('TOMAN', 'تومان')}\n💰 شارژ دیتابیس: <b>{utils.rial_to_toman(state['amount'])}</b> {MESSAGES.get('TOMAN', 'تومان')}"
             
             # ارسال ایمن رسید برای ادمین‌ها با هندلینگ خطا
+            
             for ADMIN in ADMINS_ID:
                 try: 
                     with open(file_path, 'rb') as photo_file:

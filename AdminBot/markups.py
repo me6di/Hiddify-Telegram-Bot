@@ -173,11 +173,12 @@ def users_bot_management_markup():
 def admin_discount_markup():
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
+    markup.add(InlineKeyboardButton("📋 لیست کدهای تخفیف", callback_data="admin_discount_list:None"))
     markup.add(InlineKeyboardButton("➕ افزودن کد تخفیف جدید", callback_data="admin_add_discount_step1:None"))
     markup.add(InlineKeyboardButton("❌ حذف کد تخفیف", callback_data="admin_del_discount_step1:None"))
     markup.add(InlineKeyboardButton("🔙 برگشت", callback_data="users_bot_management_menu:None"))
     return markup
-    
+
 # Users Bot Users List Management - Inline Keyboard Markup
 def users_bot_users_management_markup(value=None):
     markup = InlineKeyboardMarkup()
@@ -239,13 +240,16 @@ def bot_user_info_markup(telegram_id):
     markup.add(InlineKeyboardButton(KEY_MARKUP['USER_SUB_LIST'], callback_data=f"bot_users_sub_user_list:{telegram_id}"))
     markup.add(InlineKeyboardButton(KEY_MARKUP['ORDERS_LIST'], callback_data=f"users_bot_orders_user_list:{telegram_id}"))
     markup.add(InlineKeyboardButton(KEY_MARKUP['PAYMENTS_LIST'], callback_data=f"users_bot_payments_user_list:{telegram_id}"))
-    markup.add(InlineKeyboardButton(KEY_MARKUP['EDIT_WALLET'], callback_data=f"users_bot_wallet_edit_balance:{telegram_id}"))
+    
+    # دکمه‌های مربوط به موجودی کیف پول
+    markup.add(
+        InlineKeyboardButton(KEY_MARKUP.get('EDIT_WALLET', 'ویرایش موجودی'), callback_data=f"users_bot_wallet_edit_balance:{telegram_id}"),
+        InlineKeyboardButton("➕ شارژ دستی (افزایش)", callback_data=f"users_bot_wallet_increase_balance:{telegram_id}")
+    )
+    
     markup.add(InlineKeyboardButton(KEY_MARKUP['RESET_TEST'], callback_data=f"users_bot_reset_test:{telegram_id}"))
     markup.add(InlineKeyboardButton(KEY_MARKUP['BAN_USER'], callback_data=f"users_bot_ban_user:{telegram_id}"))
     markup.add(InlineKeyboardButton(KEY_MARKUP['SEND_MESSAGE'], callback_data=f"users_bot_send_message_by_admin:{telegram_id}"))
-    # markup.add(InlineKeyboardButton(KEY_MARKUP['GIFT_LIST'], callback_data=f"users_bot_gifts_user_list:{telegram_id}"),
-    #            InlineKeyboardButton(KEY_MARKUP['REFERRED_LIST'], callback_data=f"users_bot_referred_user_list:{telegram_id}"))
-    #markup.add(InlineKeyboardButton(KEY_MARKUP['BACK'], callback_data=f"users_bot_management_menu:None"))
     return markup
 
 # Users Bot Users List Management - Inline Keyboard Markup
