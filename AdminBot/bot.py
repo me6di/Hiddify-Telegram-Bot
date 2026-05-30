@@ -2568,15 +2568,36 @@ def callback_query(call: CallbackQuery):
                 return
             bot.delete_message(call.message.chat.id, call.message.message_id)
             
-            try:
-                # ارسال پیام هوشمند به کاربر شامل مبلغ شارژ شده واقعی
-                user_bot.send_message(int(telegram_id),
-                                      f"✅ پرداخت شما تایید شد.\n💳 کیف پول شما با موفقیت به مبلغ {utils.rial_to_toman(virtual_add)} شارژ شد.\n{f'🎁 تخفیف اعمال شده: {discount_code}' if discount_code != '-' else ''}")
-            except: pass
+           try:
+                # ایجاد متن پیام برای کاربر
+                user_msg = f"✅ پرداخت شما تایید شد.\n💳 کیف پول شما با موفقیت به مبلغ {utils.rial_to_toman(virtual_add)} شارژ شد.\n{f'🎁 تخفیف اعمال شده: {discount_code}' if discount_code != '-' else ''}"
+                
+                user_markup = None
+                
+                # استخراج آیدی پلن در صورت وجود
+                target_plan_id = None
+                if "|" in method:
+                    if method.split('|')[0].startswith("Plan:"):
+                        target_plan_id = method.split('|')[0].split(":")[1]
+                else:
+                    if method.startswith("Plan:"):
+                        target_plan_id = method.split(":")[1]
+                
+                # اگر شارژ برای پلن خاصی بوده، دکمه تکمیل خرید را اضافه کن
+                if target_plan_id:
+                    user_msg += "\n\n🛍 موجودی شما اکنون کافیست. برای تکمیل خرید و صدور کانفیگ، روی دکمه زیر کلیک کنید:"
+                    from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+                    user_markup = InlineKeyboardMarkup()
+                    user_markup.add(InlineKeyboardButton("🛍 تکمیل خرید و دریافت کانفیگ", callback_data=f"confirm_buy_from_wallet:{target_plan_id}"))
+
+                # ارسال پیام به همراه دکمه (اگر وجود داشته باشد)
+                user_bot.send_message(int(telegram_id), user_msg, reply_markup=user_markup)
+            except Exception as e: 
+                logging.error(f"Error sending msg to user: {e}")
             
             bot.send_message(call.message.chat.id,
                              f"✅ تایید شد.\nمبلغ شارژ شده: {utils.rial_to_toman(virtual_add)}\n🎁 کد تخفیف استفاده شده: {discount_code}\n{MESSAGES['ORDER_ID']} {payment_id}")
-                             
+
     # Payment - Reject Payment Callback
     elif key == 'cancel_payment_by_admin':
         if not CLIENT_TOKEN:

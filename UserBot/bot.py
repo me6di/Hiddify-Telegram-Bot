@@ -214,12 +214,13 @@ def buy_from_wallet_confirm(message: Message, plan):
     if not wallet: USERS_DB.add_wallet(telegram_id=message.chat.id); wallet = USERS_DB.find_wallet(telegram_id=message.chat.id)
     
     if plan['price'] > wallet[0]['balance']:
-        bot.send_message(message.chat.id, MESSAGES['LACK_OF_WALLET_BALANCE'], reply_markup=wallet_info_specific_markup(plan['id'], plan['price'] - wallet[0]['balance']))
+        shortage = plan['price'] - wallet[0]['balance']
+        error_msg = f"❌ موجودی کیف پول شما برای خرید پلن انتخابی کافی نیست.\n\n💳 مبلغ کسری جهت خرید این پلن: <b>{utils.rial_to_toman(shortage)}</b> {MESSAGES.get('TOMAN', 'تومان')}\n\nجهت پرداخت کسری و صدور خودکار، روی دکمه شارژ دقیق کلیک کنید."
+        bot.send_message(message.chat.id, error_msg, reply_markup=wallet_info_specific_markup(plan['id'], shortage))
     else:
         bot.delete_message(message.chat.id, message.message_id)
         msg = bot.send_message(message.chat.id, MESSAGES['REQUEST_SEND_NAME'], reply_markup=cancel_markup())
         bot.register_next_step_handler(msg, next_step_send_name_for_buy_from_wallet, plan)
-
 def next_step_send_name_for_buy_from_wallet(message: Message, plan):
     if is_it_cancel(message): return
     if is_it_command(message):
