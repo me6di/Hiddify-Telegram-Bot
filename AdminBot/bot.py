@@ -2503,6 +2503,7 @@ def callback_query(call: CallbackQuery):
 
     # ----------------------------------- Payment Callbacks -----------------------------------
     # Payment - Confirm Payment Callback
+    # Payment - Confirm Payment Callback
     elif key == "confirm_payment_by_admin":
         if not CLIENT_TOKEN:
             bot.send_message(call.message.chat.id, MESSAGES['ERROR_CLIENT_TOKEN'])
@@ -2519,28 +2520,63 @@ def callback_query(call: CallbackQuery):
                              f"{MESSAGES['ERROR_PAYMENT_ALREADY_CONFIRMED']}\n{MESSAGES['ORDER_ID']} {payment_id}")
             return
         
-        wallet = USERS_DB.find_wallet(telegram_id=payment_info['telegram_id'])
+        # --- سیستم هوشمند استخراج مبلغ واقعی و کد تخفیف ---
+        telegram_id = payment_info['telegram_id']
+        method = payment_info['payment_method']
+        virtual_add = payment_info['payment_amount']
+        discount_code = "-"
+        
+        try:
+            if "|" in method:
+                parts = method.split('|')
+                main_target = parts[0]
+                for part in parts:
+                    if part.startswith("Code:"): discount_code = part.split(":")[1]
+                
+                if main_target.startswith("Wallet:"): 
+                    virtual_add = int(main_target.split(":")[1])
+                elif main_target.startswith("Plan:"):
+                    plan_id = int(main_target.split(":")[1])
+                    plan_info_db = USERS_DB.find_plan(id=plan_id)
+                    if plan_info_db: virtual_add = plan_info_db[0]['price']
+            else:
+                if method.startswith("Wallet:"): virtual_add = int(method.split(":")[1])
+                elif method.startswith("Plan:"): 
+                    plan_id = int(method.split(":")[1])
+                    plan_info_db = USERS_DB.find_plan(id=plan_id)
+                    if plan_info_db: virtual_add = plan_info_db[0]['price']
+        except Exception as e:
+            logging.error(f"Error parsing discount/payment: {e}")
+        # --------------------------------------------------
+        
+        wallet = USERS_DB.find_wallet(telegram_id=telegram_id)
         if not wallet:
-            create_wallet_status = USERS_DB.add_wallet(payment_info['telegram_id'])
+            create_wallet_status = USERS_DB.add_wallet(telegram_id)
             if not create_wallet_status: 
                 bot.send_message(call.message.chat.id, MESSAGES['ERROR_UNKNOWN'])
                 return
-            wallet = USERS_DB.find_wallet(telegram_id=payment_info['telegram_id'])
+            wallet = USERS_DB.find_wallet(telegram_id=telegram_id)
 
         wallet = wallet[0]
         payment_status = USERS_DB.edit_payment(payment_id, approved=True)
         if payment_status:
-            new_balance = int(wallet['balance']) + int(payment_info['payment_amount'])
+            # اینجا مبلغ واقعی (مثلاً ۱۰ هزار تومان) به کیف پول واریز می‌شود
+            new_balance = int(wallet['balance']) + virtual_add
             wallet_status = USERS_DB.edit_wallet(wallet['telegram_id'], balance=new_balance)
             if not wallet_status:
                 bot.send_message(call.message.chat.id, MESSAGES['ERROR_UNKNOWN'])
                 return
             bot.delete_message(call.message.chat.id, call.message.message_id)
-            user_bot.send_message(int(payment_info['telegram_id']),
-                                  f"{MESSAGES['WALLET_PAYMENT_CONFIRMED']}\n{MESSAGES['ORDER_ID']} {payment_id}")
+            
+            try:
+                # ارسال پیام هوشمند به کاربر شامل مبلغ شارژ شده واقعی
+                user_bot.send_message(int(telegram_id),
+                                      f"✅ پرداخت شما تایید شد.\n💳 کیف پول شما با موفقیت به مبلغ {utils.rial_to_toman(virtual_add)} شارژ شد.\n{f'🎁 تخفیف اعمال شده: {discount_code}' if discount_code != '-' else ''}")
+            except: pass
+            
             bot.send_message(call.message.chat.id,
-                             f"{MESSAGES['PAYMENT_CONFIRMED_ADMIN']}\n{MESSAGES['ORDER_ID']} {payment_id}")
-
+                             f"✅ تایید شد.\nمبلغ شارژ شده: {utils.rial_to_toman(virtual_add)}\n🎁 کد تخفیف استفاده شده: {discount_code}\n{MESSAGES['ORDER_ID']} {payment_id}")
+                             
     # Payment - Reject Payment Callback
     elif key == 'cancel_payment_by_admin':
         if not CLIENT_TOKEN:
