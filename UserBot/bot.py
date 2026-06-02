@@ -361,7 +361,8 @@ def callback_query(call: CallbackQuery):
     elif key == 'unlink_subscription':
         if USERS_DB.delete_non_order_subscription(uuid=value): bot.delete_message(call.message.chat.id, call.message.message_id); bot.send_message(call.message.chat.id, MESSAGES['SUBSCRIPTION_UNLINKED'], reply_markup=main_menu_keyboard_markup())
     elif key == 'update_info_subscription':
-        update_info_subscription(call.message, value)elif key == 'increase_wallet_balance':
+        update_info_subscription(call.message, value)
+    elif key == 'increase_wallet_balance':
         msg = bot.send_message(call.message.chat.id, MESSAGES['INCREASE_WALLET_BALANCE_AMOUNT'], reply_markup=cancel_markup())
         bot.register_next_step_handler(msg, next_step_increase_wallet_balance, False)
     elif key == 'increase_wallet_balance_discount':
