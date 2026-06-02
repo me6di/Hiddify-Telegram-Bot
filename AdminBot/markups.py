@@ -201,9 +201,12 @@ def users_bot_users_management_markup(value=None):
 def users_bot_users_search_method_markup(value=None):
     markup = InlineKeyboardMarkup()
     markup.row_width = 2
-    markup.add(InlineKeyboardButton(KEY_MARKUP['SEARCH_USER_NAME'], callback_data=f"bot_users_search_name:None"))
-    markup.add(InlineKeyboardButton(KEY_MARKUP['SEARCH_USER_TELEGRAM_ID'], callback_data=f"bot_users_search_telegram_id:None"))
-    markup.add(InlineKeyboardButton(KEY_MARKUP['BACK'], callback_data=f"back_to_users_bot_users_management:None"))
+    markup.add(
+        InlineKeyboardButton(KEY_MARKUP['SEARCH_USER_NAME'], callback_data="bot_users_search_name:None"),
+        InlineKeyboardButton("🔍 جستجو با یوزرنیم", callback_data="bot_users_search_username:None")
+    )
+    markup.add(InlineKeyboardButton(KEY_MARKUP['SEARCH_USER_TELEGRAM_ID'], callback_data="bot_users_search_telegram_id:None"))
+    markup.add(InlineKeyboardButton(KEY_MARKUP['BACK'], callback_data="back_to_users_bot_users_management:None"))
     return markup
 
 # Users List Inline Keyboard Markup

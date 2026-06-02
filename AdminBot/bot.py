@@ -370,7 +370,32 @@ def search_bot_user_name(message: Message):
     if is_it_cancel(message):
         return
     searched_name = message.text
-    users = USERS_DB.find_user(full_name=searched_name)
+    # --- جستجو بر اساس بخشی از نام ---
+    all_users = USERS_DB.select_users()
+    users = [u for u in all_users if u.get('full_name') and searched_name.lower() in u['full_name'].lower()]
+    
+    if not users:
+        bot.send_message(message.chat.id, MESSAGES['ERROR_USER_NOT_FOUND'],
+                         reply_markup=markups.main_menu_keyboard_markup())
+        return
+    users.sort(key = operator.itemgetter('created_at'), reverse=True)
+    bot.send_message(message.chat.id, MESSAGES['SUCCESS_SEARCH_USER'], reply_markup=markups.main_menu_keyboard_markup())
+
+    wallets_list = USERS_DB.select_wallet()
+    orders_list = USERS_DB.select_orders()
+    msg = templates.bot_users_list_template(users, wallets_list, orders_list)
+    bot.send_message(message.chat.id, msg, reply_markup=markups.bot_users_list_markup(users))
+
+# User Bot Search  - Username
+def search_bot_user_username(message: Message):
+    global searched_name
+    if is_it_cancel(message):
+        return
+    searched_name = message.text.replace("@", "") # پاک کردن @ در صورت وجود
+    # --- جستجو بر اساس بخشی از یوزرنیم ---
+    all_users = USERS_DB.select_users()
+    users = [u for u in all_users if u.get('username') and searched_name.lower() in u['username'].lower()]
+    
     if not users:
         bot.send_message(message.chat.id, MESSAGES['ERROR_USER_NOT_FOUND'],
                          reply_markup=markups.main_menu_keyboard_markup())
@@ -1745,10 +1770,16 @@ def callback_query(call: CallbackQuery):
                           reply_markup=markups.users_bot_users_search_method_markup())
     
     elif key == "bot_users_search_name":
-        list_mode = "Bot_Users"
+        list_mode = "Bot_Users_Search_Name"
         bot.send_message(call.message.chat.id, MESSAGES['SEARCH_USER_NAME'],
                          reply_markup=markups.while_edit_user_markup())
         bot.register_next_step_handler(call.message, search_bot_user_name)
+
+    elif key == "bot_users_search_username":
+        list_mode = "Bot_Users_Search_Username"
+        bot.send_message(call.message.chat.id, "🔍 لطفاً یوزرنیم تلگرام کاربر را (بدون @ یا با @) وارد کنید:",
+                         reply_markup=markups.while_edit_user_markup())
+        bot.register_next_step_handler(call.message, search_bot_user_username)
 
     elif key == "bot_users_search_telegram_id":
         bot.send_message(call.message.chat.id, MESSAGES['SEARCH_USER_TELEGRAM_ID'],
@@ -1779,7 +1810,11 @@ def callback_query(call: CallbackQuery):
         if list_mode == "Bot_Users":
            users_list = USERS_DB.select_users()
         elif list_mode == "Bot_Users_Search_Name":
-            users_list = USERS_DB.find_user(full_name=searched_name)
+            all_users = USERS_DB.select_users()
+            users_list = [u for u in all_users if u.get('full_name') and searched_name.lower() in u['full_name'].lower()]
+        elif list_mode == "Bot_Users_Search_Username":
+            all_users = USERS_DB.select_users()
+            users_list = [u for u in all_users if u.get('username') and searched_name.lower() in u['username'].lower()]
         elif list_mode == "User_Refferals":
             users_list = USERS_DB.find_user(telegram_id=int(selected_telegram_id))
         if not users_list:
