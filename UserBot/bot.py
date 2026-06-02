@@ -101,30 +101,48 @@ def next_step_user_sub_search_uuid(message: Message):
     bot.send_message(message.chat.id, "نتیجه جستجو:", reply_markup=user_subscriptions_list_markup(results))
 
 # ----------------- Advanced Charging & Discounts -----------------
-def next_step_increase_wallet_balance(message):
+def next_step_increase_wallet_balance(message, with_discount=False):
     if is_it_cancel(message): return
     if not is_it_digit(message, markup=cancel_markup()):
         msg = bot.send_message(message.chat.id, "⚠️ لطفاً فقط عدد وارد کنید:")
-        bot.register_next_step_handler(msg, next_step_increase_wallet_balance)
+        bot.register_next_step_handler(msg, next_step_increase_wallet_balance, with_discount)
         return
         
     amount = utils.toman_to_rial(message.text)
     min_deposit = utils.all_configs_settings()['min_deposit_amount']
     if amount < min_deposit:
         msg = bot.send_message(message.chat.id, f"{MESSAGES.get('INCREASE_WALLET_BALANCE_AMOUNT', 'مبلغ:')}\n{MESSAGES.get('MINIMUM_DEPOSIT_AMOUNT', 'حداقل:')}: {utils.rial_to_toman(min_deposit)} {MESSAGES.get('TOMAN', 'تومان')}", reply_markup=cancel_markup())
-        bot.register_next_step_handler(msg, next_step_increase_wallet_balance)
+        bot.register_next_step_handler(msg, next_step_increase_wallet_balance, with_discount)
         return
 
     user_charge_state[message.chat.id] = {'amount': amount, 'plan_id': None, 'id': random.randint(1000000, 9999999)}
-    msg = bot.send_message(message.chat.id, "🎁 اگر کد تخفیف یا نمایندگی دارید اکنون ارسال کنید.\nدر غیر این صورت روی دکمه /skip کلیک کنید.", reply_markup=cancel_markup())
-    bot.register_next_step_handler(msg, next_step_apply_discount)
+    
+    if with_discount:
+        msg = bot.send_message(message.chat.id, "🎁 لطفا کد تخفیف خود را ارسال کنید.\nدر غیر این صورت روی دکمه /skip کلیک کنید.", reply_markup=cancel_markup())
+        bot.register_next_step_handler(msg, next_step_apply_discount)
+    else:
+        # پرش مستقیم به ارسال رسید (بدون کد تخفیف)
+        state = user_charge_state[message.chat.id]
+        state['discount_code'] = "-"
+        state['pay_amount'] = state['amount']
+        settings = utils.all_configs_settings()
+        bot.send_message(message.chat.id, owner_info_template(settings['card_number'], settings['card_holder'], state['pay_amount']), reply_markup=send_screenshot_markup(state['id']))
 
-def increase_wallet_balance_specific(message, plan_id, amount):
+def increase_wallet_balance_specific(message, plan_id, amount, with_discount=False):
     if not USERS_DB.find_wallet(telegram_id=message.chat.id):
         USERS_DB.add_wallet(telegram_id=message.chat.id)
     user_charge_state[message.chat.id] = {'amount': amount, 'plan_id': plan_id, 'id': random.randint(1000000, 9999999)}
-    msg = bot.send_message(message.chat.id, "🎁 اگر کد تخفیف دارید ارسال کنید، در غیر این صورت /skip را بزنید.", reply_markup=cancel_markup())
-    bot.register_next_step_handler(msg, next_step_apply_discount)
+    
+    if with_discount:
+        msg = bot.send_message(message.chat.id, "🎁 لطفا کد تخفیف خود را ارسال کنید، در غیر این صورت /skip را بزنید.", reply_markup=cancel_markup())
+        bot.register_next_step_handler(msg, next_step_apply_discount)
+    else:
+        # پرش مستقیم به ارسال رسید (بدون کد تخفیف)
+        state = user_charge_state[message.chat.id]
+        state['discount_code'] = "-"
+        state['pay_amount'] = state['amount']
+        settings = utils.all_configs_settings()
+        bot.send_message(message.chat.id, owner_info_template(settings['card_number'], settings['card_holder'], state['pay_amount']), reply_markup=send_screenshot_markup(state['id']))
 
 def next_step_apply_discount(message: Message):
     if is_it_cancel(message): return
@@ -343,13 +361,22 @@ def callback_query(call: CallbackQuery):
     elif key == 'unlink_subscription':
         if USERS_DB.delete_non_order_subscription(uuid=value): bot.delete_message(call.message.chat.id, call.message.message_id); bot.send_message(call.message.chat.id, MESSAGES['SUBSCRIPTION_UNLINKED'], reply_markup=main_menu_keyboard_markup())
     elif key == 'update_info_subscription':
-        update_info_subscription(call.message, value)
-    elif key == 'increase_wallet_balance':
+        update_info_subscription(call.message, value)elif key == 'increase_wallet_balance':
         msg = bot.send_message(call.message.chat.id, MESSAGES['INCREASE_WALLET_BALANCE_AMOUNT'], reply_markup=cancel_markup())
-        bot.register_next_step_handler(msg, next_step_increase_wallet_balance)
+        bot.register_next_step_handler(msg, next_step_increase_wallet_balance, False)
+    elif key == 'increase_wallet_balance_discount':
+        msg = bot.send_message(call.message.chat.id, MESSAGES['INCREASE_WALLET_BALANCE_AMOUNT'], reply_markup=cancel_markup())
+        bot.register_next_step_handler(msg, next_step_increase_wallet_balance, True)
     elif key == 'increase_wallet_balance_specific':
         bot.delete_message(call.message.chat.id, call.message.message_id)
-        increase_wallet_balance_specific(call.message, data[1], int(data[2]))
+        increase_wallet_balance_specific(call.message, data[1], int(data[2]), False)
+    elif key == 'increase_wallet_balance_specific_discount':
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+        increase_wallet_balance_specific(call.message, data[1], int(data[2]), True)
+    elif key == 'direct_card_payment':
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+        plan = USERS_DB.find_plan(id=int(value))[0]
+        increase_wallet_balance_specific(call.message, plan['id'], plan['price'], False)
     elif key == 'cancel_increase_wallet_balance':
         bot.delete_message(call.message.chat.id, call.message.message_id)
         bot.send_message(call.message.chat.id, MESSAGES['CANCEL_INCREASE_WALLET_BALANCE'], reply_markup=main_menu_keyboard_markup())
