@@ -348,6 +348,34 @@ def callback_query(call: CallbackQuery):
         bot.delete_message(call.message.chat.id, call.message.message_id)
         msg = bot.send_message(call.message.chat.id, MESSAGES['REQUEST_SEND_NAME'], reply_markup=cancel_markup())
         bot.register_next_step_handler(msg, next_step_send_name_for_get_free_test, value)
+    elif key == 'renewal_subscription':
+        sub = utils.find_order_subscription_by_uuid(value)
+        if not sub:
+            return bot.answer_callback_query(call.id, MESSAGES.get('UNKNOWN_ERROR', 'خطا'))
+        
+        # ذخیره موقت UUID برای مرحله بعدی
+        renew_subscription_dict[call.message.chat.id] = value 
+        
+        plans = USERS_DB.find_plan(server_id=sub['server_id'])
+        
+        warning_msg = (
+            "♻️ <b>تمدید اشتراک</b>\n\n"
+            "کاربر گرامی، یادآوری میکنیم که با تمدید سرویس، <b>حجم و زمان پلن جدید از همین لحظه جایگزین مقادیر فعلی شما می‌شود</b> "
+            "(در واقع مثل یک شارژ مجدد، مقادیر قبلی ریست خواهند شد).\n\n"
+            "👇 در صورتی که مایل به ادامه هستید، لطفاً پلن مورد نظر خود را انتخاب کنید:"
+        )
+        
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, 
+                              text=warning_msg, 
+                              reply_markup=plans_list_markup(plans, renewal=True, uuid=value))
+    elif key == 'renewal_plan_selected':
+        plan = USERS_DB.find_plan(id=value)[0]
+        wallet = USERS_DB.find_wallet(telegram_id=call.message.chat.id)
+        uuid = renew_subscription_dict.get(call.message.chat.id)
+        
+        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, 
+                              text=plan_info_template(plan, wallet_balance=wallet[0]['balance'] if wallet else 0), 
+                              reply_markup=confirm_buy_plan_markup(plan['id'], renewal=True, uuid=uuid))
     elif key == 'plan_selected':
         plan = USERS_DB.find_plan(id=value)[0]
         wallet = USERS_DB.find_wallet(telegram_id=call.message.chat.id)

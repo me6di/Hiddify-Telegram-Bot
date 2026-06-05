@@ -1,6 +1,7 @@
 from Utils.utils import *
 from UserBot.bot import bot
 from config import CLIENT_TOKEN
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from UserBot.templates import package_size_end_soon_template, package_days_expire_soon_template
 try:
     bot.remove_webhook()
@@ -41,9 +42,28 @@ def cron_reminder():
                     package_days = user_subscription.get('remaining_day', 0)
                     package_gb = user_subscription.get('usage', {}).get('remaining_usage_GB', 0)
                     sub_id = user_subscription.get('sub_id')
+                    
+                    # استخراج نام و UUID کانفیگ برای نمایش و تمدید
+                    sub_name = user_subscription.get('name', 'کاربر')
+                    uuid = user_subscription.get('uuid')
+                    
                     if package_days == 0:
                         continue
+                        
+                    # ساخت دکمه شیشه‌ای تمدید مستقیم برای همین کانفیگ
+                    markup = InlineKeyboardMarkup()
+                    markup.add(InlineKeyboardButton("🔄 تمدید این اشتراک", callback_data=f"renewal_subscription:{uuid}"))
+                    
                     if alert_package_gb(package_gb):
-                        bot.send_message(user_telegram_id, package_size_end_soon_template(sub_id, package_gb))
+                        msg_text = f"⚠️ <b>هشدار اتمام حجم!</b>\n\nکاربر گرامی، حجم سرویس شما با نام <b>{sub_name}</b> رو به پایان است.\n📊 حجم باقی‌مانده: {package_gb} گیگابایت\n\nجهت جلوگیری از قطعی، می‌توانید از طریق دکمه زیر اقدام به تمدید نمایید."
+                        try:
+                            bot.send_message(user_telegram_id, msg_text, reply_markup=markup, parse_mode="HTML")
+                        except:
+                            pass
+                            
                     if alert_package_days(package_days):
-                        bot.send_message(user_telegram_id, package_days_expire_soon_template(sub_id, package_days))
+                        msg_text = f"⚠️ <b>هشدار اتمام زمان!</b>\n\nکاربر گرامی، زمان سرویس شما با نام <b>{sub_name}</b> رو به پایان است.\n⏳ زمان باقی‌مانده: {package_days} روز\n\nجهت جلوگیری از قطعی، می‌توانید از طریق دکمه زیر اقدام به تمدید نمایید."
+                        try:
+                            bot.send_message(user_telegram_id, msg_text, reply_markup=markup, parse_mode="HTML")
+                        except:
+                            pass
