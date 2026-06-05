@@ -51,17 +51,6 @@ def confirm_subscription_markup(uuid):
     markup.add(InlineKeyboardButton(KEY_MARKUP['NO'], callback_data=f"cancel_subscription:{uuid}"))
     return markup
 
-def confirm_buy_plan_markup(plan_id, renewal=False, uuid=None):
-    markup = InlineKeyboardMarkup()
-    markup.row_width = 1
-    callback = "confirm_buy_from_wallet" if not renewal else "confirm_renewal_from_wallet"
-    markup.add(InlineKeyboardButton("💳 پرداخت مستقیم (کارت به کارت)", callback_data=f"direct_card_payment:{plan_id}"))
-    markup.add(InlineKeyboardButton(KEY_MARKUP['BUY_FROM_WALLET'], callback_data=f"{callback}:{plan_id}"))
-    if renewal:
-        markup.add(InlineKeyboardButton(KEY_MARKUP.get('BACK', 'برگشت'), callback_data=f"back_to_renewal_plans:{uuid}"))
-    else:
-        markup.add(InlineKeyboardButton(KEY_MARKUP.get('BACK', 'برگشت'), callback_data=f"back_to_plans:None"))
-    return markup
 
 def send_screenshot_markup(payment_id):
     markup = InlineKeyboardMarkup()
@@ -147,12 +136,34 @@ def wallet_info_markup():
     markup.add(InlineKeyboardButton("🎁 افزایش موجودی با کد تخفیف", callback_data="increase_wallet_balance_discount:wallet"))
     return markup
 
-def wallet_info_specific_markup(plan_id, amount):
+def confirm_buy_plan_markup(plan_id, renewal=False, uuid=None):
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
-    markup.add(InlineKeyboardButton(f"💳 شارژ دقیق ( {rial_to_toman(amount)} {MESSAGES.get('TOMAN', 'تومان')} )", callback_data=f"increase_wallet_balance_specific:{plan_id}:{amount}"))
-    markup.add(InlineKeyboardButton("🎁 شارژ دقیق با کد تخفیف", callback_data=f"increase_wallet_balance_specific_discount:{plan_id}:{amount}"))
-    markup.add(InlineKeyboardButton("🔙 برگشت", callback_data=f"plan_selected:{plan_id}"))
+    callback = "confirm_buy_from_wallet" if not renewal else "confirm_renewal_from_wallet"
+    
+    # ترفند: اگر تمدید باشد، آیدی پلن را منفی می‌فرستیم
+    card_plan_id = -int(plan_id) if renewal else plan_id
+    
+    markup.add(InlineKeyboardButton("💳 پرداخت مستقیم (کارت به کارت)", callback_data=f"direct_card_payment:{card_plan_id}"))
+    markup.add(InlineKeyboardButton(KEY_MARKUP['BUY_FROM_WALLET'], callback_data=f"{callback}:{plan_id}"))
+    if renewal:
+        markup.add(InlineKeyboardButton(KEY_MARKUP.get('BACK', 'برگشت'), callback_data=f"back_to_renewal_plans:{uuid}"))
+    else:
+        markup.add(InlineKeyboardButton(KEY_MARKUP.get('BACK', 'برگشت'), callback_data=f"back_to_plans:None"))
+    return markup
+
+def wallet_info_specific_markup(plan_id, amount, is_renewal=False):
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1
+    
+    # ترفند: در صورت تمدید، پلن آیدی منفی ذخیره می‌شود
+    target_plan_id = -int(plan_id) if is_renewal else plan_id
+    
+    markup.add(InlineKeyboardButton(f"💳 شارژ دقیق ( {rial_to_toman(amount)} {MESSAGES.get('TOMAN', 'تومان')} )", callback_data=f"increase_wallet_balance_specific:{target_plan_id}:{amount}"))
+    markup.add(InlineKeyboardButton("🎁 شارژ دقیق با کد تخفیف", callback_data=f"increase_wallet_balance_specific_discount:{target_plan_id}:{amount}"))
+    
+    back_callback = f"renewal_plan_selected:{plan_id}" if is_renewal else f"plan_selected:{plan_id}"
+    markup.add(InlineKeyboardButton("🔙 برگشت", callback_data=back_callback))
     return markup
 
 def force_join_channel_markup(channel_id):

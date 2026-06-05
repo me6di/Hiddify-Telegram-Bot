@@ -131,13 +131,16 @@ def next_step_increase_wallet_balance(message, with_discount=False):
 def increase_wallet_balance_specific(message, plan_id, amount, with_discount=False):
     if not USERS_DB.find_wallet(telegram_id=message.chat.id):
         USERS_DB.add_wallet(telegram_id=message.chat.id)
-    user_charge_state[message.chat.id] = {'amount': amount, 'plan_id': plan_id, 'id': random.randint(1000000, 9999999)}
+        
+    # ذخیره مخفیانه UUID در صورت منفی بودن آیدی پلن (به معنی تمدید)
+    uuid = renew_subscription_dict.get(message.chat.id) if int(plan_id) < 0 else None
+    
+    user_charge_state[message.chat.id] = {'amount': amount, 'plan_id': plan_id, 'uuid': uuid, 'id': random.randint(1000000, 9999999)}
     
     if with_discount:
         msg = bot.send_message(message.chat.id, "🎁 لطفا کد تخفیف خود را ارسال کنید، در غیر این صورت /skip را بزنید.", reply_markup=cancel_markup())
         bot.register_next_step_handler(msg, next_step_apply_discount)
     else:
-        # پرش مستقیم به ارسال رسید (بدون کد تخفیف)
         state = user_charge_state[message.chat.id]
         state['discount_code'] = "-"
         state['pay_amount'] = state['amount']
@@ -195,7 +198,8 @@ def next_step_send_screenshot(message, payment_id):
             new_file.write(downloaded_file)
 
         plan_part = f"Plan:{state['plan_id']}" if state.get('plan_id') else f"Wallet:{state['amount']}"
-        payment_method = f"{plan_part}|Code:{state.get('discount_code', '-')}|Pay:{state['pay_amount']}"
+        uuid_part = f"|UUID:{state['uuid']}" if state.get('uuid') else ""
+        payment_method = f"{plan_part}{uuid_part}|Code:{state.get('discount_code', '-')}|Pay:{state['pay_amount']}|Charge:{state['amount']}"
         created_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         if USERS_DB.add_payment(state['id'], message.chat.id, state['pay_amount'], payment_method, file_name, created_at):
@@ -228,6 +232,46 @@ def next_step_send_screenshot(message, payment_id):
         bot.send_message(message.chat.id, MESSAGES.get('UNKNOWN_ERROR', 'خطای سیستمی رخ داد.'), reply_markup=main_menu_keyboard_markup())
 
 # ----------------- Subscriptions Area -----------------
+def renewal_from_wallet_confirm(message: Message, plan, uuid):
+    if not plan: return bot.send_message(message.chat.id, MESSAGES['UNKNOWN_ERROR'], reply_markup=main_menu_keyboard_markup())
+    wallet = USERS_DB.find_wallet(telegram_id=message.chat.id)
+    if not wallet: USERS_DB.add_wallet(telegram_id=message.chat.id); wallet = USERS_DB.find_wallet(telegram_id=message.chat.id)
+    
+    if plan['price'] > wallet[0]['balance']:
+        shortage = plan['price'] - wallet[0]['balance']
+        error_msg = f"❌ موجودی کیف پول شما برای تمدید این پلن کافی نیست.\n\n💳 مبلغ کسری جهت تمدید: <b>{utils.rial_to_toman(shortage)}</b> {MESSAGES.get('TOMAN', 'تومان')}\n\nجهت پرداخت کسری، روی یکی از دکمه‌های زیر کلیک کنید."
+        bot.send_message(message.chat.id, error_msg, reply_markup=wallet_info_specific_markup(plan['id'], shortage, is_renewal=True))
+    else:
+        bot.delete_message(message.chat.id, message.message_id)
+        msg_wait = bot.send_message(message.chat.id, MESSAGES['WAIT'])
+        
+        sub = utils.find_order_subscription_by_uuid(uuid)
+        if not sub:
+            bot.delete_message(message.chat.id, msg_wait.message_id)
+            return bot.send_message(message.chat.id, MESSAGES['UNKNOWN_ERROR'], reply_markup=main_menu_keyboard_markup())
+            
+        server = USERS_DB.find_server(id=sub['server_id'])[0]
+        URL = server['url'] + API_PATH
+        
+        last_reset_time = datetime.datetime.now().strftime("%Y-%m-%d")
+        status = api.update(URL, uuid=uuid, package_days=plan['days'], usage_limit_GB=plan['size_gb'], current_usage_GB=0, start_date=last_reset_time)
+        
+        if not status:
+            bot.delete_message(message.chat.id, msg_wait.message_id)
+            return bot.send_message(message.chat.id, MESSAGES.get('UNKNOWN_ERROR', 'خطا در ارتباط با سرور'), reply_markup=main_menu_keyboard_markup())
+            
+        USERS_DB.edit_wallet(message.chat.id, balance=wallet[0]['balance'] - plan['price'])
+        order_id = random.randint(1000000, 9999999)
+        name_for_db = api.find(URL, uuid).get('name', 'تمدیدی')
+        USERS_DB.add_order(order_id, message.chat.id, f"تمدید: {name_for_db}", plan['id'], datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        
+        bot.delete_message(message.chat.id, msg_wait.message_id)
+        bot.send_message(message.chat.id, f"✅ تمدید سرویس با موفقیت انجام شد!\nحجم و زمان شما ریست و طبق پلن جدید تنظیم گردید.\n{MESSAGES.get('ORDER_ID', 'شناسه')} {order_id}", reply_markup=main_menu_keyboard_markup())
+        
+        user_info = utils.dict_process(URL, utils.users_to_dict([api.find(URL, uuid)]))[0]
+        mrkup = user_info_non_sub_markup(uuid) if sub.get('telegram_id') else user_info_markup(uuid)
+        bot.send_message(message.chat.id, user_info_template(sub['id'], server, user_info, MESSAGES.get('INFO_USER', '')), reply_markup=mrkup)
+
 def buy_from_wallet_confirm(message: Message, plan):
     if not plan: return bot.send_message(message.chat.id, MESSAGES['UNKNOWN_ERROR'], reply_markup=main_menu_keyboard_markup())
     wallet = USERS_DB.find_wallet(telegram_id=message.chat.id)
@@ -402,10 +446,17 @@ def callback_query(call: CallbackQuery):
     elif key == 'increase_wallet_balance_specific_discount':
         bot.delete_message(call.message.chat.id, call.message.message_id)
         increase_wallet_balance_specific(call.message, data[1], int(data[2]), True)
+    elif key == 'confirm_renewal_from_wallet':
+        uuid = renew_subscription_dict.get(call.message.chat.id)
+        if not uuid:
+            return bot.answer_callback_query(call.id, "❌ خطای نشست. لطفا مجدداً از منوی وضعیت اشتراک اقدام کنید.", show_alert=True)
+        plan = USERS_DB.find_plan(id=value)[0]
+        renewal_from_wallet_confirm(call.message, plan, uuid)    
     elif key == 'direct_card_payment':
         bot.delete_message(call.message.chat.id, call.message.message_id)
-        plan = USERS_DB.find_plan(id=int(value))[0]
-        increase_wallet_balance_specific(call.message, plan['id'], plan['price'], False)
+        plan_id_val = int(value)
+        plan = USERS_DB.find_plan(id=abs(plan_id_val))[0]
+        increase_wallet_balance_specific(call.message, plan_id_val, plan['price'], False)
     elif key == 'cancel_increase_wallet_balance':
         bot.delete_message(call.message.chat.id, call.message.message_id)
         bot.send_message(call.message.chat.id, MESSAGES['CANCEL_INCREASE_WALLET_BALANCE'], reply_markup=main_menu_keyboard_markup())

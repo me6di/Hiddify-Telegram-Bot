@@ -2571,7 +2571,6 @@ def callback_query(call: CallbackQuery):
 
     # ----------------------------------- Payment Callbacks -----------------------------------
     # Payment - Confirm Payment Callback
-    # Payment - Confirm Payment Callback
     elif key == "confirm_payment_by_admin":
         if not CLIENT_TOKEN:
             bot.send_message(call.message.chat.id, MESSAGES['ERROR_CLIENT_TOKEN'])
@@ -2579,56 +2578,49 @@ def callback_query(call: CallbackQuery):
         payment_id = value
         payment_info = USERS_DB.find_payment(id=payment_id)
         if not payment_info:
-            bot.send_message(call.message.chat.id,
-                             f"{MESSAGES['ERROR_PAYMENT_NOT_FOUND']}\n{MESSAGES['ORDER_ID']} {payment_id}")
+            bot.send_message(call.message.chat.id, f"{MESSAGES['ERROR_PAYMENT_NOT_FOUND']}\n{MESSAGES['ORDER_ID']} {payment_id}")
             return
         payment_info = payment_info[0]
         if payment_info['approved'] == 1:
-            bot.send_message(call.message.chat.id,
-                             f"{MESSAGES['ERROR_PAYMENT_ALREADY_CONFIRMED']}\n{MESSAGES['ORDER_ID']} {payment_id}")
+            bot.send_message(call.message.chat.id, f"{MESSAGES['ERROR_PAYMENT_ALREADY_CONFIRMED']}\n{MESSAGES['ORDER_ID']} {payment_id}")
             return
         
-        # --- سیستم هوشمند استخراج مبلغ واقعی و کد تخفیف ---
+        # --- استخراج هوشمند اطلاعات پرداخت و تمدید ---
         telegram_id = payment_info['telegram_id']
         method = payment_info['payment_method']
         virtual_add = payment_info['payment_amount']
         discount_code = "-"
+        target_plan_id = None
+        target_uuid = None
+        is_renewal_action = False
         
         try:
-            if "|" in method:
-                parts = method.split('|')
-                main_target = parts[0]
-                for part in parts:
-                    if part.startswith("Code:"): discount_code = part.split(":")[1]
-                
-                if main_target.startswith("Wallet:"): 
-                    virtual_add = int(main_target.split(":")[1])
-                elif main_target.startswith("Plan:"):
-                    plan_id = int(main_target.split(":")[1])
-                    plan_info_db = USERS_DB.find_plan(id=plan_id)
-                    if plan_info_db: virtual_add = plan_info_db[0]['price']
-            else:
-                if method.startswith("Wallet:"): virtual_add = int(method.split(":")[1])
-                elif method.startswith("Plan:"): 
-                    plan_id = int(method.split(":")[1])
-                    plan_info_db = USERS_DB.find_plan(id=plan_id)
-                    if plan_info_db: virtual_add = plan_info_db[0]['price']
+            parts = method.split('|')
+            for part in parts:
+                if part.startswith("Code:"): discount_code = part.split(":")[1]
+                elif part.startswith("Charge:"): virtual_add = int(part.split(":")[1])
+                elif part.startswith("Plan:"):
+                    pid = int(part.split(":")[1])
+                    if pid < 0:
+                        is_renewal_action = True
+                        target_plan_id = abs(pid)
+                    else:
+                        target_plan_id = pid
+                elif part.startswith("UUID:"):
+                    target_uuid = part.split(":")[1]
         except Exception as e:
             logging.error(f"Error parsing discount/payment: {e}")
-        # --------------------------------------------------
         
         wallet = USERS_DB.find_wallet(telegram_id=telegram_id)
         if not wallet:
-            create_wallet_status = USERS_DB.add_wallet(telegram_id)
-            if not create_wallet_status: 
-                bot.send_message(call.message.chat.id, MESSAGES['ERROR_UNKNOWN'])
-                return
+            USERS_DB.add_wallet(telegram_id)
             wallet = USERS_DB.find_wallet(telegram_id=telegram_id)
 
         wallet = wallet[0]
         payment_status = USERS_DB.edit_payment(payment_id, approved=True)
+        
         if payment_status:
-            # اینجا مبلغ واقعی (مثلاً ۱۰ هزار تومان) به کیف پول واریز می‌شود
+            # ۱. واریز مبلغ به کیف پول
             new_balance = int(wallet['balance']) + virtual_add
             wallet_status = USERS_DB.edit_wallet(wallet['telegram_id'], balance=new_balance)
             if not wallet_status:
@@ -2636,36 +2628,54 @@ def callback_query(call: CallbackQuery):
                 return
             bot.delete_message(call.message.chat.id, call.message.message_id)
             
+            # ۲. عملیات تمدید تمام اتوماتیک در لحظه
+            if is_renewal_action and target_uuid and target_plan_id:
+                try:
+                    plan = USERS_DB.find_plan(id=target_plan_id)[0]
+                    wallet_now = USERS_DB.find_wallet(telegram_id=telegram_id)[0]
+                    
+                    if plan['price'] <= wallet_now['balance']:
+                        sub = utils.find_order_subscription_by_uuid(target_uuid)
+                        if sub:
+                            server = USERS_DB.find_server(id=sub['server_id'])[0]
+                            URL = server['url'] + API_PATH
+                            
+                            import datetime
+                            last_reset_time = datetime.datetime.now().strftime("%Y-%m-%d")
+                            update_status = api.update(URL, uuid=target_uuid, package_days=plan['days'], usage_limit_GB=plan['size_gb'], current_usage_GB=0, start_date=last_reset_time)
+                            
+                            if update_status:
+                                USERS_DB.edit_wallet(telegram_id, balance=wallet_now['balance'] - plan['price'])
+                                import random
+                                order_id = random.randint(1000000, 9999999)
+                                name_for_db = api.find(URL, target_uuid).get('name', 'تمدیدی')
+                                USERS_DB.add_order(order_id, telegram_id, f"تمدید: {name_for_db}", plan['id'], datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                                
+                                user_msg = f"✅ پرداخت شما تایید شد.\n\n🔄 اشتراک شما با نام <b>{name_for_db}</b> با موفقیت تمدید شد!\nحجم و زمان شما ریست و طبق پلن جدید تنظیم گردید."
+                                user_bot.send_message(int(telegram_id), user_msg)
+                                
+                                bot.send_message(call.message.chat.id, f"✅ تایید شد و اشتراک {name_for_db} به صورت خودکار تمدید گردید!\nمبلغ شارژ شده: {utils.rial_to_toman(virtual_add)}\n{MESSAGES['ORDER_ID']} {payment_id}")
+                                return
+                except Exception as e:
+                    logging.error(f"Error in auto renewal: {e}")
+            
+            # ۳. ارسال پیام شارژ عادی یا خرید جدید (در صورتی که تمدید نبود)
             try:
-                # ایجاد متن پیام برای کاربر
                 user_msg = f"✅ پرداخت شما تایید شد.\n💳 کیف پول شما با موفقیت به مبلغ {utils.rial_to_toman(virtual_add)} شارژ شد.\n{f'🎁 تخفیف اعمال شده: {discount_code}' if discount_code != '-' else ''}"
-                
                 user_markup = None
                 
-                # استخراج آیدی پلن در صورت وجود
-                target_plan_id = None
-                if "|" in method:
-                    if method.split('|')[0].startswith("Plan:"):
-                        target_plan_id = method.split('|')[0].split(":")[1]
-                else:
-                    if method.startswith("Plan:"):
-                        target_plan_id = method.split(":")[1]
-                
-                # اگر شارژ برای پلن خاصی بوده، دکمه تکمیل خرید را اضافه کن
-                if target_plan_id:
-                    user_msg += "\n\n🛍 موجودی شما اکنون کافیست. برای تکمیل خرید و صدور کانفیگ، روی دکمه زیر کلیک کنید:"
+                if target_plan_id and not is_renewal_action:
                     from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
                     user_markup = InlineKeyboardMarkup()
+                    user_msg += "\n\n🛍 موجودی شما اکنون کافیست. برای تکمیل خرید و صدور کانفیگ، روی دکمه زیر کلیک کنید:"
                     user_markup.add(InlineKeyboardButton("🛍 تکمیل خرید و دریافت کانفیگ", callback_data=f"confirm_buy_from_wallet:{target_plan_id}"))
 
-                # ارسال پیام به همراه دکمه (اگر وجود داشته باشد)
                 user_bot.send_message(int(telegram_id), user_msg, reply_markup=user_markup)
             except Exception as e: 
                 logging.error(f"Error sending msg to user: {e}")
             
-            bot.send_message(call.message.chat.id,
-                             f"✅ تایید شد.\nمبلغ شارژ شده: {utils.rial_to_toman(virtual_add)}\n🎁 کد تخفیف استفاده شده: {discount_code}\n{MESSAGES['ORDER_ID']} {payment_id}")
-
+            bot.send_message(call.message.chat.id, f"✅ تایید شد.\nمبلغ شارژ شده: {utils.rial_to_toman(virtual_add)}\n🎁 کد تخفیف استفاده شده: {discount_code}\n{MESSAGES['ORDER_ID']} {payment_id}")
+    
     # Payment - Reject Payment Callback
     elif key == 'cancel_payment_by_admin':
         if not CLIENT_TOKEN:
