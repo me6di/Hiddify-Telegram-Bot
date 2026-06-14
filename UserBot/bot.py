@@ -253,8 +253,20 @@ def renewal_from_wallet_confirm(message: Message, plan, uuid):
         server = USERS_DB.find_server(id=sub['server_id'])[0]
         URL = server['url'] + API_PATH
         
+        # --- سیستم محاسبه و انتقال حجم باقیمانده ---
+        panel_user = api.find(URL, uuid)
+        if not panel_user:
+            bot.delete_message(message.chat.id, msg_wait.message_id)
+            return bot.send_message(message.chat.id, MESSAGES['UNKNOWN_ERROR'], reply_markup=main_menu_keyboard_markup())
+            
+        # محاسبه حجم باقیمانده (جلوگیری از منفی شدن با max)
+        remaining_gb = max(0, panel_user.get('usage_limit_GB', 0) - panel_user.get('current_usage_GB', 0))
+        new_total_gb = plan['size_gb'] + remaining_gb
+        # ------------------------------------------
+        
         last_reset_time = datetime.datetime.now().strftime("%Y-%m-%d")
-        status = api.update(URL, uuid=uuid, package_days=plan['days'], usage_limit_GB=plan['size_gb'], current_usage_GB=0, start_date=last_reset_time)
+        # استفاده از new_total_gb به جای حجم خامِ پلن
+        status = api.update(URL, uuid=uuid, package_days=plan['days'], usage_limit_GB=new_total_gb, current_usage_GB=0, start_date=last_reset_time)
         
         if not status:
             bot.delete_message(message.chat.id, msg_wait.message_id)
@@ -409,8 +421,8 @@ def callback_query(call: CallbackQuery):
         
         warning_msg = (
             "♻️ <b>تمدید اشتراک</b>\n\n"
-            "کاربر گرامی، یادآوری میکنیم که با تمدید سرویس، <b>حجم و زمان پلن جدید از همین لحظه جایگزین مقادیر فعلی شما می‌شود</b> "
-            "(در واقع مثل یک شارژ مجدد، مقادیر قبلی ریست خواهند شد).\n\n"
+            "کاربر گرامی، با تمدید سرویس، <b>حجم باقیمانده شما نسوخته و مستقیماً به حجم پلن جدید اضافه خواهد شد!</b> 🎁\n\n"
+            "⚠️ توجه داشته باشید که زمان سرویس شما از همین لحظه ریست شده و بر اساس مدت زمان پلن جدید محاسبه می‌شود.\n\n"
             "👇 در صورتی که مایل به ادامه هستید، لطفاً پلن مورد نظر خود را انتخاب کنید:"
         )
         

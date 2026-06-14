@@ -2653,9 +2653,19 @@ def callback_query(call: CallbackQuery):
                             server = USERS_DB.find_server(id=sub['server_id'])[0]
                             URL = server['url'] + API_PATH
                             
+                            # --- سیستم محاسبه و انتقال حجم باقیمانده ---
+                            panel_user = api.find(URL, target_uuid)
+                            if panel_user:
+                                remaining_gb = max(0, panel_user.get('usage_limit_GB', 0) - panel_user.get('current_usage_GB', 0))
+                            else:
+                                remaining_gb = 0
+                            new_total_gb = plan['size_gb'] + remaining_gb
+                            # ------------------------------------------
+                            
                             import datetime
                             last_reset_time = datetime.datetime.now().strftime("%Y-%m-%d")
-                            update_status = api.update(URL, uuid=target_uuid, package_days=plan['days'], usage_limit_GB=plan['size_gb'], current_usage_GB=0, start_date=last_reset_time)
+                            # استفاده از new_total_gb به جای حجم خامِ پلن
+                            update_status = api.update(URL, uuid=target_uuid, package_days=plan['days'], usage_limit_GB=new_total_gb, current_usage_GB=0, start_date=last_reset_time)
                             
                             if update_status:
                                 USERS_DB.edit_wallet(telegram_id, balance=wallet_now['balance'] - plan['price'])
