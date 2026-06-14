@@ -309,7 +309,9 @@ def next_step_send_name_for_buy_from_wallet(message: Message, plan):
     bot.send_message(message.chat.id, f"{MESSAGES.get('PAYMENT_CONFIRMED', 'تایید شد')}\n{MESSAGES.get('ORDER_ID', 'شناسه')} {order_id}", reply_markup=main_menu_keyboard_markup())
     
     user_info = utils.dict_process(URL, utils.users_to_dict([api.find(URL, value)]))[0]
-    base_sub = SUB_URL if SUB_URL.endswith("/") else f"{SUB_URL}/"
+    # بررسی لینک اختصاصی سرور
+    dynamic_sub_url = server.get('sub_url') if server.get('sub_url') else SUB_URL
+    base_sub = dynamic_sub_url if dynamic_sub_url.endswith("/") else f"{dynamic_sub_url}/"
     sub_link = f"{base_sub}{value}/#{name.replace(' ', '_')}"
     qr_code = utils.txt_to_qr(sub_link)
     
@@ -336,7 +338,10 @@ def next_step_send_name_for_get_free_test(message: Message, server_id):
     bot.send_message(message.chat.id, MESSAGES['GET_FREE_CONFIRMED'], reply_markup=main_menu_keyboard_markup())
     
     user_info = utils.dict_process(URL, utils.users_to_dict([api.find(URL, uuid)]))[0]
-    sub_link = f"{SUB_URL if SUB_URL.endswith('/') else SUB_URL + '/'}{uuid}/#{message.text.replace(' ', '_')}"
+    # بررسی لینک اختصاصی سرور
+    dynamic_sub_url = server.get('sub_url') if server.get('sub_url') else SUB_URL
+    base_sub = dynamic_sub_url if dynamic_sub_url.endswith("/") else f"{dynamic_sub_url}/"
+    sub_link = f"{base_sub}{uuid}/#{message.text.replace(' ', '_')}"
     qr_code = utils.txt_to_qr(sub_link)
     caption_text = f"{user_info_template(non_order_id, server, user_info, MESSAGES['INFO_USER'])}\n\n🔗 لینک:\n<code>{sub_link}</code>"
     
@@ -466,7 +471,10 @@ def callback_query(call: CallbackQuery):
         sub_info = sub_info[0] if isinstance(sub_info, list) else sub_info
         server = USERS_DB.find_server(id=sub_info['server_id'])[0]
         user_name = api.find(server['url'] + API_PATH, uuid=value).get('name', 'User') or 'User'
-        my_sub_link = f"{SUB_URL if SUB_URL.endswith('/') else SUB_URL + '/'}{value}/#{user_name.replace(' ', '_')}"
+        # بررسی لینک اختصاصی سرور
+        dynamic_sub_url = server.get('sub_url') if server.get('sub_url') else SUB_URL
+        base_sub = dynamic_sub_url if dynamic_sub_url.endswith("/") else f"{dynamic_sub_url}/"
+        my_sub_link = f"{base_sub}{value}/#{user_name.replace(' ', '_')}"
         qr_code = utils.txt_to_qr(my_sub_link)
         if qr_code: bot.send_photo(call.message.chat.id, photo=qr_code, caption=f"🔗 لینک سابسکریپشن:\n<code>{my_sub_link}</code>", reply_markup=main_menu_keyboard_markup())
         else: bot.send_message(call.message.chat.id, f"🔗 لینک:\n<code>{my_sub_link}</code>", reply_markup=main_menu_keyboard_markup())

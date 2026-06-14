@@ -418,10 +418,8 @@ def users_bot_add_plan(size, days, price, server_id,description=None):
 
 #--------------------------Server area ----------------------------
 # add server
-def add_server(url, user_limit, title=None, description=None, status=True, default_server=False):
-    # randon 5 digit number
-    #server_id = random.randint(10000, 99999)
-    server_status = USERS_DB.add_server(url, user_limit, title, description, status, default_server)
+def add_server(url, user_limit, title=None, description=None, status=True, default_server=False, sub_url=None):
+    server_status = USERS_DB.add_server(url, user_limit, title, description, status, default_server, sub_url)
     if not server_status:
         return False
     return True

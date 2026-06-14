@@ -150,9 +150,17 @@ class UserDBManager:
                         "title TEXT, description TEXT,"
                         "user_limit INTEGER NOT NULL,"
                         "status BOOLEAN NOT NULL,"
-                        "default_server BOOLEAN NOT NULL DEFAULT 0)")
+                        "default_server BOOLEAN NOT NULL DEFAULT 0,"
+                        "sub_url TEXT NULL)")
             self.conn.commit()
             logging.info("Servers table created successfully!")
+
+            # آپدیت جدول برای دیتابیس‌های قدیمی (بدون حذف اطلاعات)
+            try:
+                cur.execute("ALTER TABLE servers ADD COLUMN sub_url TEXT NULL")
+                self.conn.commit()
+            except:
+                pass
 
         # --- جدول اختصاصی کدهای تخفیف ---
             cur.execute("CREATE TABLE IF NOT EXISTS discount_codes ("
@@ -920,12 +928,12 @@ class UserDBManager:
             logging.error(f"Error while selecting all servers \n Error:{e}")
             return None
         
-    def add_server(self, url, user_limit, title=None, description=None, status=True, default_server=False):
+    def add_server(self, url, user_limit, title=None, description=None, status=True, default_server=False, sub_url=None):
         cur = self.conn.cursor()
         try:
             cur.execute(
-                "INSERT INTO servers(url,title,description,user_limit,status,default_server) VALUES(?,?,?,?,?,?)",
-                (url, title, description, user_limit, status, default_server))
+                "INSERT INTO servers(url,title,description,user_limit,status,default_server,sub_url) VALUES(?,?,?,?,?,?,?)",
+                (url, title, description, user_limit, status, default_server, sub_url))
             self.conn.commit()
             logging.info(f"Server [{url}] added successfully!")
             return True

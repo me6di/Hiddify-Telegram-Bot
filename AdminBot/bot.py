@@ -595,18 +595,31 @@ def add_server_user_limit(message: Message):
         bot.register_next_step_handler(message, add_server_user_limit)
         return
     add_server_data['user_limit'] = int(message.text)
+    
+    # رفتن به مرحله جدید: درخواست لینک سابسکریپشن
+    bot.send_message(message.chat.id, "🔗 لطفاً لینک سابسکریپشن اختصاصی این سرور را وارد کنید:\n(اگر این سرور لینک اختصاصی ندارد، کلمه None را بفرستید تا از لینک اصلی ربات استفاده شود)", reply_markup=markups.while_edit_user_markup())
+    bot.register_next_step_handler(message, add_server_sub_url)
+
+# Add Server - Sub URL (مرحله جدید)
+def add_server_sub_url(message: Message):
+    if is_it_cancel(message):
+        return
+        
+    sub_url_val = None if message.text.strip().lower() == 'none' else message.text.strip()
+    add_server_data['sub_url'] = sub_url_val
+    
     msg_wait = bot.send_message(message.chat.id, MESSAGES['WAIT'], reply_markup=markups.while_edit_user_markup())
-    status = utils.add_server(url=add_server_data['url'], user_limit=add_server_data['user_limit'], title=add_server_data['title'])
+    status = utils.add_server(url=add_server_data['url'], user_limit=add_server_data['user_limit'], title=add_server_data['title'], sub_url=add_server_data['sub_url'])
     bot.delete_message(message.chat.id, msg_wait.message_id)
+    
     if not status:
         bot.send_message(message.chat.id, MESSAGES['ERROR_UNKNOWN'], reply_markup=markups.main_menu_keyboard_markup())
         return
-    bot.send_message(message.chat.id, MESSAGES['ADD_SERVER_SUCCESS'],
-                     reply_markup=markups.main_menu_keyboard_markup())
+        
+    bot.send_message(message.chat.id, MESSAGES['ADD_SERVER_SUCCESS'], reply_markup=markups.main_menu_keyboard_markup())
     servers = USERS_DB.select_servers()
-    bot.send_message(message.chat.id, KEY_MARKUP['SERVERS_MANAGEMENT'],
-                     reply_markup=markups.servers_management_markup(servers))
-    
+    bot.send_message(message.chat.id, KEY_MARKUP['SERVERS_MANAGEMENT'], reply_markup=markups.servers_management_markup(servers))
+
 # Edit Server - Server Title
 def edit_server_title(message: Message, server_id):
     if is_it_cancel(message):
