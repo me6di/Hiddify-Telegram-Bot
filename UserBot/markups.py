@@ -25,25 +25,29 @@ def main_menu_keyboard_markup():
                    KeyboardButton(KEY_MARKUP['MANUAL']))
     return markup
 
-def user_info_markup(uuid):
+def user_info_markup(uuid, is_expired=False):
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
     markup.add(InlineKeyboardButton("🔗 دریافت لینک سابسکریپشن", callback_data=f"conf_sub_url:{uuid}"))
     markup.add(InlineKeyboardButton(KEY_MARKUP['RENEWAL_SUBSCRIPTION'], callback_data=f"renewal_subscription:{uuid}"))
     markup.add(InlineKeyboardButton(KEY_MARKUP['UPDATE_SUBSCRIPTION_INFO'], callback_data=f"update_info_subscription:{uuid}"))
+    if is_expired:
+        markup.add(InlineKeyboardButton("🗑 حذف این سرویس", callback_data=f"delete_expired_sub:{uuid}"))
     markup.add(InlineKeyboardButton(KEY_MARKUP.get('BACK', 'برگشت'), callback_data="user_sub_page:1"))
     return markup
 
-def user_info_non_sub_markup(uuid):
+def user_info_non_sub_markup(uuid, is_expired=False):
     markup = InlineKeyboardMarkup()
     markup.row_width = 2
     markup.add(InlineKeyboardButton("🔗 دریافت لینک سابسکریپشن", callback_data=f"conf_sub_url:{uuid}"))
     markup.add(InlineKeyboardButton(KEY_MARKUP['RENEWAL_SUBSCRIPTION'], callback_data=f"renewal_subscription:{uuid}"))
     markup.add(InlineKeyboardButton(KEY_MARKUP['UPDATE_SUBSCRIPTION_INFO'], callback_data=f"update_info_subscription:{uuid}"))
     markup.add(InlineKeyboardButton(KEY_MARKUP['UNLINK_SUBSCRIPTION'], callback_data=f"unlink_subscription:{uuid}"))
+    if is_expired:
+        markup.add(InlineKeyboardButton("🗑 حذف این سرویس", callback_data=f"delete_expired_sub:{uuid}"))
     markup.add(InlineKeyboardButton(KEY_MARKUP.get('BACK', 'برگشت'), callback_data="user_sub_page:1"))
     return markup
-
+    
 def confirm_subscription_markup(uuid):
     markup = InlineKeyboardMarkup()
     markup.row_width = 1

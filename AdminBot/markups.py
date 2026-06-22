@@ -53,15 +53,6 @@ def users_list_markup(server_id, users, page=1):
     return markup
 
 
-# Single User Inline Keyboard Markup
-def user_info_markup(uuid):
-    markup = InlineKeyboardMarkup()
-    markup.row_width = 1
-    markup.add(InlineKeyboardButton(KEY_MARKUP['CONFIGS_USER'], callback_data=f"user_config:{uuid}"))
-    markup.add(InlineKeyboardButton(KEY_MARKUP['EDIT_USER'], callback_data=f"user_edit:{uuid}"))
-    markup.add(InlineKeyboardButton(KEY_MARKUP['DELETE_USER'], callback_data=f"user_delete:{uuid}"))
-    return markup
-
 
 # Single User Edit Inline Keyboard Markup
 def edit_user_markup(uuid):
@@ -523,17 +514,26 @@ def users_bot_management_settings_reset_free_test_markup():
     markup.add(InlineKeyboardButton(KEY_MARKUP['BACK'], callback_data=f"users_bot_settings:None"))
     return markup
 
+# Single User Inline Keyboard Markup
+def user_info_markup(uuid):
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 1
+    markup.add(InlineKeyboardButton("🔗 لینک سابسکریپشن", callback_data=f"user_config:{uuid}"))
+    markup.add(InlineKeyboardButton(KEY_MARKUP['EDIT_USER'], callback_data=f"user_edit:{uuid}"))
+    markup.add(InlineKeyboardButton(KEY_MARKUP['DELETE_USER'], callback_data=f"user_delete:{uuid}"))
+    return markup
+
 # Single Subscription Inline Keyboard Markup
 def sub_search_info_markup(uuid,user):
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
-    markup.add(InlineKeyboardButton(KEY_MARKUP['CONFIGS_USER'], callback_data=f"user_config:{uuid}"))
+    markup.add(InlineKeyboardButton("🔗 لینک سابسکریپشن", callback_data=f"user_config:{uuid}"))
     markup.add(InlineKeyboardButton(KEY_MARKUP['EDIT_USER'], callback_data=f"user_edit:{uuid}"))
     markup.add(InlineKeyboardButton(KEY_MARKUP['DELETE_USER'], callback_data=f"user_delete:{uuid}"))
     name = user['full_name'] if user['full_name'] else user['telegram_id']
     markup.add(InlineKeyboardButton(f"{name}", callback_data=f"bot_user_info:{user['telegram_id']}"))
     return markup
-
+    
 #--------------------------------------End Bot User Management -----------------------------------
 #----------------------------------End Bot User Settings Management ------------------------------
 #-----------------------------------------Servers Management -------------------------------------

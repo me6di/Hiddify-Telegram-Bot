@@ -1326,10 +1326,41 @@ def callback_query(call: CallbackQuery):
     # ----------------------------------- Single User Info Area Callbacks -----------------------------------
     # Delete User Callback
     elif key == "user_delete":
-        # status = ADMIN_DB.delete_user(uuid=value)
-        bot.send_message(call.message.chat.id, MESSAGES['FEATUR_UNAVAILABLE'],
-                         reply_markup=markups.main_menu_keyboard_markup())
-        return
+        msg_wait = bot.send_message(call.message.chat.id, MESSAGES.get('WAIT', '⏳ در حال حذف کاربر، لطفاً صبر کنید...'))
+        
+        # جستجوی هوشمندانه سرور مربوط به این کاربر
+        del_url = None
+        sub = utils.find_order_subscription_by_uuid(value)
+        if sub:
+            server = USERS_DB.find_server(id=sub['server_id'])[0]
+            del_url = server['url'] + API_PATH
+        else:
+            servers = USERS_DB.select_servers()
+            if servers:
+                for s in servers:
+                    if api.find(s['url'] + API_PATH, value):
+                        del_url = s['url'] + API_PATH
+                        break
+                        
+        if not del_url:
+            bot.delete_message(call.message.chat.id, msg_wait.message_id)
+            bot.answer_callback_query(call.id, "❌ این کاربر در هیچکدام از سرورهای متصل یافت نشد.", show_alert=True)
+            return
+
+        # حذف کامل از پنل سرور هیدیفای
+        status = api.delete(del_url, uuid=value)
+        if not status:
+            bot.delete_message(call.message.chat.id, msg_wait.message_id)
+            bot.answer_callback_query(call.id, "❌ خطا در حذف کاربر از پنل سرور. لطفا مجددا تلاش کنید.", show_alert=True)
+            return
+            
+        # پاکسازی دیتای کاربر از دیتابیس ربات
+        USERS_DB.delete_order_subscription(uuid=value)
+        USERS_DB.delete_non_order_subscription(uuid=value)
+        
+        bot.delete_message(call.message.chat.id, call.message.message_id) # پاک کردن پیام مشخصات کاربر
+        bot.delete_message(call.message.chat.id, msg_wait.message_id)
+        bot.send_message(call.message.chat.id, "✅ کاربر با موفقیت از پنل و دیتابیس ربات حذف شد.", reply_markup=markups.main_menu_keyboard_markup())
         # if not status:
         #     bot.send_message(call.message.chat.id, MESSAGES['ERROR_UNKNOWN'],
         #                      reply_markup=markups.main_menu_keyboard_markup())
@@ -1351,19 +1382,50 @@ def callback_query(call: CallbackQuery):
         bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id,
                                       reply_markup=markups.edit_user_markup(value))
 
-    # Configs User Callback
+    # Configs User Callback -> نمایش مستقیم لینک سابسکریپشن با سرور اختصاصی
     elif key == "user_config":
+        msg_wait = bot.send_message(call.message.chat.id, MESSAGES.get('WAIT', '⏳ در حال ساخت لینک و کیوآرکد...'))
+        from config import SUB_URL
+        
+        global selected_server, URL
         if server_mode == "All":
             servers = USERS_DB.select_servers()
             if servers:
                 for server in servers:
-                    users_list = api.find(server['url'] + API_PATH, value)
-                    if users_list:
+                    if api.find(server['url'] + API_PATH, value):
                         URL = server['url'] + API_PATH
                         selected_server = server
                         break
-        bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id,
-                                      reply_markup=markups.sub_url_user_list_markup(value))
+                        
+        if not selected_server:
+            bot.delete_message(call.message.chat.id, msg_wait.message_id)
+            return bot.answer_callback_query(call.id, "❌ سرور یافت نشد.", show_alert=True)
+
+        usr = utils.user_info(URL, value)
+        if not usr:
+            bot.delete_message(call.message.chat.id, msg_wait.message_id)
+            return bot.answer_callback_query(call.id, "❌ کاربر در پنل یافت نشد.", show_alert=True)
+
+        # استخراج هوشمند دامنه (سرور اصلی یا سرورهای جانبی)
+        dynamic_sub_url = selected_server.get('sub_url') if selected_server.get('sub_url') else SUB_URL
+        base_sub = dynamic_sub_url if dynamic_sub_url.endswith("/") else f"{dynamic_sub_url}/"
+        user_name = usr['name'].replace(' ', '_')
+        my_sub_link = f"{base_sub}{value}/#{user_name}"
+
+        # ساخت کیوآرکد
+        qr_code = utils.txt_to_qr(my_sub_link)
+        bot.delete_message(call.message.chat.id, msg_wait.message_id)
+        
+        if not qr_code:
+            return bot.answer_callback_query(call.id, "❌ خطا در ساخت کیوآرکد.", show_alert=True)
+
+        # ارسال به صورت تصویر
+        bot.send_photo(
+            call.message.chat.id,
+            photo=qr_code,
+            caption=f"🔗 <b>لینک سابسکریپشن:</b>\n👤 {usr['name']}\n\n<code>{my_sub_link}</code>",
+            reply_markup=markups.main_menu_keyboard_markup()
+        )
 
     # ----------------------------------- Edit User Area Callbacks -----------------------------------
     # Edit User - Update Message Callback

@@ -372,9 +372,13 @@ def next_step_to_qr(message: Message):
 def update_info_subscription(message: Message, uuid, markup=None):
     sub = utils.find_order_subscription_by_uuid(uuid)
     if not sub: return bot.send_message(message.chat.id, MESSAGES['UNKNOWN_ERROR'], reply_markup=main_menu_keyboard_markup())
-    mrkup = markup or (user_info_non_sub_markup(sub['uuid']) if sub.get('telegram_id') else user_info_markup(sub['uuid']))
     server = USERS_DB.find_server(id=sub['server_id'])[0]
     user = utils.dict_process(server['url'] + API_PATH, utils.users_to_dict([api.find(server['url'] + API_PATH, uuid=sub['uuid'])]))[0]
+    
+    # بررسی هوشمندانه اتمام حجم یا زمان
+    is_expired = user['remaining_day'] == 0 or user['usage']['remaining_usage_GB'] <= 0
+    mrkup = markup or (user_info_non_sub_markup(sub['uuid'], is_expired) if sub.get('telegram_id') else user_info_markup(sub['uuid'], is_expired))
+    
     try: bot.edit_message_text(chat_id=message.chat.id, message_id=message.message_id, text=user_info_template(sub['id'], server, user, MESSAGES['INFO_USER']), reply_markup=mrkup)
     except: pass
 
@@ -393,7 +397,36 @@ def callback_query(call: CallbackQuery):
         if not sub: return bot.answer_callback_query(call.id, MESSAGES['UNKNOWN_ERROR'])
         server = USERS_DB.find_server(id=sub['server_id'])[0]
         user = utils.dict_process(server['url'] + API_PATH, utils.users_to_dict([api.find(server['url'] + API_PATH, uuid=value)]))[0]
-        bot.edit_message_text(user_info_template(sub['id'], server, user, MESSAGES['INFO_USER']), call.message.chat.id, call.message.message_id, reply_markup=user_info_non_sub_markup(value) if sub.get('telegram_id') else user_info_markup(value))
+        
+        # بررسی هوشمندانه اتمام حجم یا زمان
+        is_expired = user['remaining_day'] == 0 or user['usage']['remaining_usage_GB'] <= 0
+        bot.edit_message_text(user_info_template(sub['id'], server, user, MESSAGES['INFO_USER']), call.message.chat.id, call.message.message_id, reply_markup=user_info_non_sub_markup(value, is_expired) if sub.get('telegram_id') else user_info_markup(value, is_expired))
+    elif key == "delete_expired_sub":
+        sub = utils.find_order_subscription_by_uuid(value)
+        if not sub: return bot.answer_callback_query(call.id, MESSAGES['UNKNOWN_ERROR'])
+        
+        server = USERS_DB.find_server(id=sub['server_id'])[0]
+        URL = server['url'] + API_PATH
+        
+        user = utils.dict_process(URL, utils.users_to_dict([api.find(URL, uuid=value)]))[0]
+        
+        # یک بررسی مجدد امنیتی تا کسی با باگ نتواند کانفیگ سالم را حذف کند
+        if not (user['remaining_day'] == 0 or user['usage']['remaining_usage_GB'] <= 0):
+            return bot.answer_callback_query(call.id, "❌ این سرویس هنوز منقضی نشده است!", show_alert=True)
+            
+        status = api.delete(URL, uuid=value)
+        if not status: return bot.answer_callback_query(call.id, "❌ خطا در حذف از سرور.", show_alert=True)
+            
+        USERS_DB.delete_order_subscription(uuid=value)
+        USERS_DB.delete_non_order_subscription(uuid=value)
+        
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+        bot.answer_callback_query(call.id, "✅ سرویس منقضی شده با موفقیت حذف شد.", show_alert=True)
+        
+        # بازگشت اتوماتیک به لیست اشتراک‌ها بعد از حذف موفق
+        all_subs = (utils.non_order_user_info(call.message.chat.id) or []) + (utils.order_user_info(call.message.chat.id) or [])
+        if not all_subs: bot.send_message(call.message.chat.id, MESSAGES.get('SUBSCRIPTION_NOT_FOUND', 'اشتراکی یافت نشد.'), reply_markup=main_menu_keyboard_markup())
+        else: bot.send_message(call.message.chat.id, "📋 لیست اشتراک‌های شما:\n\nبرای مدیریت، روی نام اشتراک کلیک کنید:", reply_markup=user_subscriptions_list_markup(all_subs))
     elif key == "user_sub_search_name":
         msg = bot.send_message(call.message.chat.id, MESSAGES['REQUEST_SEND_NAME'], reply_markup=cancel_markup())
         bot.register_next_step_handler(msg, next_step_user_sub_search_name)
