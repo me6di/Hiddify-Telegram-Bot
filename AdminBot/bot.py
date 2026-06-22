@@ -1387,27 +1387,29 @@ def callback_query(call: CallbackQuery):
         msg_wait = bot.send_message(call.message.chat.id, MESSAGES.get('WAIT', '⏳ در حال ساخت لینک و کیوآرکد...'))
         from config import SUB_URL
         
-        global selected_server, URL
+        target_server = selected_server
+        target_url = URL
+        
         if server_mode == "All":
             servers = USERS_DB.select_servers()
             if servers:
                 for server in servers:
                     if api.find(server['url'] + API_PATH, value):
-                        URL = server['url'] + API_PATH
-                        selected_server = server
+                        target_url = server['url'] + API_PATH
+                        target_server = server
                         break
                         
-        if not selected_server:
+        if not target_server:
             bot.delete_message(call.message.chat.id, msg_wait.message_id)
             return bot.answer_callback_query(call.id, "❌ سرور یافت نشد.", show_alert=True)
 
-        usr = utils.user_info(URL, value)
+        usr = utils.user_info(target_url, value)
         if not usr:
             bot.delete_message(call.message.chat.id, msg_wait.message_id)
             return bot.answer_callback_query(call.id, "❌ کاربر در پنل یافت نشد.", show_alert=True)
 
         # استخراج هوشمند دامنه (سرور اصلی یا سرورهای جانبی)
-        dynamic_sub_url = selected_server.get('sub_url') if selected_server.get('sub_url') else SUB_URL
+        dynamic_sub_url = target_server.get('sub_url') if target_server.get('sub_url') else SUB_URL
         base_sub = dynamic_sub_url if dynamic_sub_url.endswith("/") else f"{dynamic_sub_url}/"
         user_name = usr['name'].replace(' ', '_')
         my_sub_link = f"{base_sub}{value}/#{user_name}"
@@ -1426,7 +1428,6 @@ def callback_query(call: CallbackQuery):
             caption=f"🔗 <b>لینک سابسکریپشن:</b>\n👤 {usr['name']}\n\n<code>{my_sub_link}</code>",
             reply_markup=markups.main_menu_keyboard_markup()
         )
-
     # ----------------------------------- Edit User Area Callbacks -----------------------------------
     # Edit User - Update Message Callback
     elif key == "user_edit_update":
