@@ -373,7 +373,13 @@ def update_info_subscription(message: Message, uuid, markup=None):
     sub = utils.find_order_subscription_by_uuid(uuid)
     if not sub: return bot.send_message(message.chat.id, MESSAGES['UNKNOWN_ERROR'], reply_markup=main_menu_keyboard_markup())
     server = USERS_DB.find_server(id=sub['server_id'])[0]
-    user = utils.dict_process(server['url'] + API_PATH, utils.users_to_dict([api.find(server['url'] + API_PATH, uuid=sub['uuid'])]))[0]
+    
+    # اضافه شدن بررسی امنیتی
+    user_api = api.find(server['url'] + API_PATH, uuid=sub['uuid'])
+    if not user_api:
+        return bot.send_message(message.chat.id, "❌ این سرویس در پنل سرور یافت نشد (احتمالا حذف شده است).", reply_markup=main_menu_keyboard_markup())
+        
+    user = utils.dict_process(server['url'] + API_PATH, utils.users_to_dict([user_api]))[0]
     
     # بررسی هوشمندانه اتمام حجم یا زمان
     is_expired = user['remaining_day'] == 0 or user['usage']['remaining_usage_GB'] <= 0
@@ -396,7 +402,13 @@ def callback_query(call: CallbackQuery):
         sub = utils.find_order_subscription_by_uuid(value)
         if not sub: return bot.answer_callback_query(call.id, MESSAGES['UNKNOWN_ERROR'])
         server = USERS_DB.find_server(id=sub['server_id'])[0]
-        user = utils.dict_process(server['url'] + API_PATH, utils.users_to_dict([api.find(server['url'] + API_PATH, uuid=value)]))[0]
+        
+        # اضافه شدن بررسی امنیتی
+        user_api = api.find(server['url'] + API_PATH, uuid=value)
+        if not user_api:
+            return bot.answer_callback_query(call.id, "❌ سرویس در پنل یافت نشد.", show_alert=True)
+            
+        user = utils.dict_process(server['url'] + API_PATH, utils.users_to_dict([user_api]))[0]
         
         # بررسی هوشمندانه اتمام حجم یا زمان
         is_expired = user['remaining_day'] == 0 or user['usage']['remaining_usage_GB'] <= 0
@@ -408,7 +420,16 @@ def callback_query(call: CallbackQuery):
         server = USERS_DB.find_server(id=sub['server_id'])[0]
         URL = server['url'] + API_PATH
         
-        user = utils.dict_process(URL, utils.users_to_dict([api.find(URL, uuid=value)]))[0]
+        # اضافه شدن بررسی امنیتی
+        user_api = api.find(URL, uuid=value)
+        if not user_api:
+            # اگر در پنل نیست، فقط از دیتابیس پاکش کن تا ارور نده
+            USERS_DB.delete_order_subscription(uuid=value)
+            USERS_DB.delete_non_order_subscription(uuid=value)
+            bot.delete_message(call.message.chat.id, call.message.message_id)
+            return bot.answer_callback_query(call.id, "✅ سرویس از قبل در پنل حذف شده بود و از دیتابیس ربات هم پاک شد.", show_alert=True)
+            
+        user = utils.dict_process(URL, utils.users_to_dict([user_api]))[0]
         
         # یک بررسی مجدد امنیتی تا کسی با باگ نتواند کانفیگ سالم را حذف کند
         if not (user['remaining_day'] == 0 or user['usage']['remaining_usage_GB'] <= 0):
@@ -515,7 +536,11 @@ def callback_query(call: CallbackQuery):
         if not sub_info: return bot.answer_callback_query(call.id, MESSAGES['UNKNOWN_ERROR'])
         sub_info = sub_info[0] if isinstance(sub_info, list) else sub_info
         server = USERS_DB.find_server(id=sub_info['server_id'])[0]
-        user_name = api.find(server['url'] + API_PATH, uuid=value).get('name', 'User') or 'User'
+        
+        # هندل کردن دریافت نام در صورت پاک شدن کانفیگ از پنل
+        panel_user = api.find(server['url'] + API_PATH, uuid=value)
+        user_name = panel_user.get('name', 'User') if panel_user else 'User'
+        
         # بررسی لینک اختصاصی سرور
         dynamic_sub_url = server.get('sub_url') if server.get('sub_url') else SUB_URL
         base_sub = dynamic_sub_url if dynamic_sub_url.endswith("/") else f"{dynamic_sub_url}/"
