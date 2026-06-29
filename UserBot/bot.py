@@ -422,32 +422,40 @@ def callback_query(call: CallbackQuery):
         
         user_api = api.find(URL, uuid=value)
         if not user_api:
+            # اگر در پنل نبود، از دیتابیس خودمون پاک میکنیم
             USERS_DB.delete_order_subscription(uuid=value)
             USERS_DB.delete_non_order_subscription(uuid=value)
             try: bot.delete_message(call.message.chat.id, call.message.message_id)
             except: pass
-            return bot.answer_callback_query(call.id, "✅ سرویس از قبل در پنل حذف شده بود و از دیتابیس ربات هم پاک شد.", show_alert=True)
+            return bot.answer_callback_query(call.id, "✅ این سرویس قبلاً از سرور حذف شده بود و از لیست شما هم پاک شد.", show_alert=True)
             
         user = utils.dict_process(URL, utils.users_to_dict([user_api]))[0]
         
+        # بررسی امنیتی اتمام حجم/زمان
         if not (user['remaining_day'] == 0 or user['usage']['remaining_usage_GB'] <= 0):
             return bot.answer_callback_query(call.id, "❌ این سرویس هنوز منقضی نشده است!", show_alert=True)
             
-        # تغییر نام تابع به remove طبق فایل api.py شما
-        status = api.remove(URL, uuid=value)
-        if not status: return bot.answer_callback_query(call.id, "❌ خطا در حذف از سرور.", show_alert=True)
+        # فراخوانی تابع جدید حذف از فایل api
+        status = api.delete(URL, uuid=value)
             
+        # پاک کردن اطلاعات از دیتابیس ربات به هر حال
         USERS_DB.delete_order_subscription(uuid=value)
         USERS_DB.delete_non_order_subscription(uuid=value)
         
         try: bot.delete_message(call.message.chat.id, call.message.message_id)
         except: pass
         
-        bot.answer_callback_query(call.id, "✅ سرویس منقضی شده با موفقیت حذف شد.", show_alert=True)
+        if not status: 
+            bot.answer_callback_query(call.id, "✅ از لیست شما پاک شد (اما سرور در حال حاضر پاسخگو نیست).", show_alert=True)
+        else:
+            bot.answer_callback_query(call.id, "✅ سرویس منقضی شده با موفقیت از پنل و ربات حذف شد.", show_alert=True)
         
+        # بازگشت اتوماتیک به لیست اشتراک‌های کاربر
         all_subs = (utils.non_order_user_info(call.message.chat.id) or []) + (utils.order_user_info(call.message.chat.id) or [])
-        if not all_subs: bot.send_message(call.message.chat.id, MESSAGES.get('SUBSCRIPTION_NOT_FOUND', 'اشتراکی یافت نشد.'), reply_markup=main_menu_keyboard_markup())
-        else: bot.send_message(call.message.chat.id, "📋 لیست اشتراک‌های شما:\n\nبرای مدیریت، روی نام اشتراک کلیک کنید:", reply_markup=user_subscriptions_list_markup(all_subs))
+        if not all_subs: 
+            bot.send_message(call.message.chat.id, MESSAGES.get('SUBSCRIPTION_NOT_FOUND', 'اشتراکی یافت نشد.'), reply_markup=main_menu_keyboard_markup())
+        else: 
+            bot.send_message(call.message.chat.id, "📋 لیست اشتراک‌های شما:\n\nبرای مدیریت، روی نام اشتراک کلیک کنید:", reply_markup=user_subscriptions_list_markup(all_subs))
     elif key == "user_sub_search_name":
         msg = bot.send_message(call.message.chat.id, MESSAGES['REQUEST_SEND_NAME'], reply_markup=cancel_markup())
         bot.register_next_step_handler(msg, next_step_user_sub_search_name)
