@@ -25,15 +25,14 @@ def main_menu_keyboard_markup():
                    KeyboardButton(KEY_MARKUP['MANUAL']))
     return markup
 
-def user_info_markup(uuid, is_enabled=True):
+def user_info_markup(uuid, is_active=True):
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
     markup.add(InlineKeyboardButton("🔗 دریافت لینک سابسکریپشن", callback_data=f"conf_sub_url:{uuid}"))
     markup.add(InlineKeyboardButton(KEY_MARKUP['RENEWAL_SUBSCRIPTION'], callback_data=f"renewal_subscription:{uuid}"))
     markup.add(InlineKeyboardButton(KEY_MARKUP['UPDATE_SUBSCRIPTION_INFO'], callback_data=f"update_info_subscription:{uuid}"))
     
-    # تغییر منطق: اگر اشتراک غیرفعال است، دکمه فعال‌سازی و حذف نمایش داده شود
-    if not is_enabled:
+    if not is_active:
         markup.add(InlineKeyboardButton("✅ فعال‌سازی مجدد", callback_data=f"toggle_sub:enable:{uuid}"))
         markup.add(InlineKeyboardButton("🗑 حذف این سرویس", callback_data=f"delete_expired_sub:{uuid}"))
     else:
@@ -42,25 +41,23 @@ def user_info_markup(uuid, is_enabled=True):
     markup.add(InlineKeyboardButton(KEY_MARKUP.get('BACK', 'برگشت'), callback_data="user_sub_page:1"))
     return markup
 
-def user_info_non_sub_markup(uuid, is_enabled=True):
+def user_info_non_sub_markup(uuid, is_active=True):
     markup = InlineKeyboardMarkup()
-    markup.row_width = 1
+    markup.row_width = 2
     markup.add(InlineKeyboardButton("🔗 دریافت لینک سابسکریپشن", callback_data=f"conf_sub_url:{uuid}"))
     markup.add(InlineKeyboardButton(KEY_MARKUP['RENEWAL_SUBSCRIPTION'], callback_data=f"renewal_subscription:{uuid}"))
     markup.add(InlineKeyboardButton(KEY_MARKUP['UPDATE_SUBSCRIPTION_INFO'], callback_data=f"update_info_subscription:{uuid}"))
     markup.add(InlineKeyboardButton(KEY_MARKUP['UNLINK_SUBSCRIPTION'], callback_data=f"unlink_subscription:{uuid}"))
     
-    # منطق جدید: اگر اشتراک غیرفعال است (False)، دکمه فعال‌سازی و حذف نمایش داده شود
-    if not is_enabled:
+    if not is_active:
         markup.add(InlineKeyboardButton("✅ فعال‌سازی مجدد", callback_data=f"toggle_sub:enable:{uuid}"))
         markup.add(InlineKeyboardButton("🗑 حذف این سرویس", callback_data=f"delete_expired_sub:{uuid}"))
     else:
-        # اگر فعال است، فقط دکمه غیرفعال کردن نمایش داده شود
         markup.add(InlineKeyboardButton("❌ غیرفعال کردن", callback_data=f"toggle_sub:disable:{uuid}"))
         
     markup.add(InlineKeyboardButton(KEY_MARKUP.get('BACK', 'برگشت'), callback_data="user_sub_page:1"))
     return markup
-
+    
 def confirm_subscription_markup(uuid):
     markup = InlineKeyboardMarkup()
     markup.row_width = 1

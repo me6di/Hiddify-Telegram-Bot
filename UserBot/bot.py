@@ -371,22 +371,21 @@ def next_step_to_qr(message: Message):
 
 def update_info_subscription(message: Message, uuid, markup=None):
     sub = utils.find_order_subscription_by_uuid(uuid)
-    if not sub: return
+    if not sub: return bot.send_message(message.chat.id, MESSAGES['UNKNOWN_ERROR'], reply_markup=main_menu_keyboard_markup())
     server = USERS_DB.find_server(id=sub['server_id'])[0]
-    user_api = api.find(server['url'] + API_PATH, uuid=sub['uuid'])
-    if not user_api: return
     
+    user_api = api.find(server['url'] + API_PATH, uuid=sub['uuid'])
+    if not user_api:
+        return bot.send_message(message.chat.id, "❌ این سرویس در پنل سرور یافت نشد (احتمالا حذف شده است).", reply_markup=main_menu_keyboard_markup())
+        
     user = utils.dict_process(server['url'] + API_PATH, utils.users_to_dict([user_api]))[0]
     
-    # منطق جدید: چک کردن وضعیت enable از پنل (اگر False باشد یعنی غیرفعال است)
-    is_enabled = user.get('enable', True)
+    # ترکیب شرط‌ها: اشتراک فقط در صورتی "فعال" است که هم Enable باشد، هم زمان داشته باشد و هم حجم
+    is_active = user.get('enable', True) and user.get('remaining_day', 1) > 0 and user['usage'].get('remaining_usage_GB', 1) > 0
     
-    mrkup = markup or (user_info_non_sub_markup(sub['uuid'], not is_enabled) if sub.get('telegram_id') else user_info_markup(sub['uuid'], is_enabled))
+    mrkup = markup or (user_info_non_sub_markup(sub['uuid'], is_active) if sub.get('telegram_id') else user_info_markup(sub['uuid'], is_active))
     
-    try: 
-        bot.edit_message_text(chat_id=message.chat.id, message_id=message.message_id, 
-                              text=user_info_template(sub['id'], server, user, MESSAGES['INFO_USER']), 
-                              reply_markup=mrkup)
+    try: bot.edit_message_text(chat_id=message.chat.id, message_id=message.message_id, text=user_info_template(sub['id'], server, user, MESSAGES['INFO_USER']), reply_markup=mrkup)
     except: pass
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -404,16 +403,17 @@ def callback_query(call: CallbackQuery):
         if not sub: return bot.answer_callback_query(call.id, MESSAGES['UNKNOWN_ERROR'])
         server = USERS_DB.find_server(id=sub['server_id'])[0]
         
-        # اضافه شدن بررسی امنیتی
         user_api = api.find(server['url'] + API_PATH, uuid=value)
         if not user_api:
             return bot.answer_callback_query(call.id, "❌ سرویس در پنل یافت نشد.", show_alert=True)
             
         user = utils.dict_process(server['url'] + API_PATH, utils.users_to_dict([user_api]))[0]
         
-        # بررسی هوشمندانه اتمام حجم یا زمان
-        is_expired = user['remaining_day'] == 0 or user['usage']['remaining_usage_GB'] <= 0
-        bot.edit_message_text(user_info_template(sub['id'], server, user, MESSAGES['INFO_USER']), call.message.chat.id, call.message.message_id, reply_markup=user_info_non_sub_markup(value, is_expired) if sub.get('telegram_id') else user_info_markup(value, is_expired))
+        # ترکیب شرط‌ها: اشتراک فقط در صورتی "فعال" است که هم Enable باشد، هم زمان داشته باشد و هم حجم
+        is_active = user.get('enable', True) and user.get('remaining_day', 1) > 0 and user['usage'].get('remaining_usage_GB', 1) > 0
+        
+        mrkup = user_info_non_sub_markup(value, is_active) if sub.get('telegram_id') else user_info_markup(value, is_active)
+        bot.edit_message_text(user_info_template(sub['id'], server, user, MESSAGES['INFO_USER']), call.message.chat.id, call.message.message_id, reply_markup=mrkup)
     elif key == "toggle_sub":
         action, uuid = data[1], data[2]
         sub = utils.find_order_subscription_by_uuid(uuid)
@@ -471,14 +471,18 @@ def callback_query(call: CallbackQuery):
     elif key == "user_sub_inactive":
         all_subs = (utils.non_order_user_info(call.message.chat.id) or []) + (utils.order_user_info(call.message.chat.id) or [])
         
-        # فیلتر دقیق: اشتراک‌هایی که enable آن‌ها False است یا remaining_day آن‌ها 0 است
-        inactive_subs = [
-            sub for sub in all_subs 
-            if sub.get('enable') is False or sub.get('remaining_day', 0) == 0 or sub['usage'].get('remaining_usage_GB', 1) <= 0
-        ]
+        # فیلتر جامع: پیدا کردن اشتراک‌هایی که یا دستی غیرفعال شده‌اند، یا زمانشان تمام شده، یا حجمشان صفر است
+        inactive_subs = []
+        for sub in all_subs:
+            is_manual_disabled = not sub.get('enable', True)
+            is_time_expired = sub.get('remaining_day', 1) == 0
+            is_data_expired = sub.get('usage', {}).get('remaining_usage_GB', 1) <= 0
+            
+            if is_manual_disabled or is_time_expired or is_data_expired:
+                inactive_subs.append(sub)
         
         if not inactive_subs:
-            return bot.answer_callback_query(call.id, "✅ اشتراک غیرفعالی ندارید.", show_alert=True)
+            return bot.answer_callback_query(call.id, "✅ اشتراک منقضی یا غیرفعالی ندارید.", show_alert=True)
             
         bot.edit_message_text("📋 لیست اشتراک‌های منقضی یا غیرفعال:", call.message.chat.id, call.message.message_id, reply_markup=user_subscriptions_list_markup(inactive_subs, int(value)))
     elif key == "user_sub_search_name":
