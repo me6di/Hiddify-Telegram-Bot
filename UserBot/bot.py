@@ -397,7 +397,19 @@ def callback_query(call: CallbackQuery):
     global selected_server_id
 
     if key == "user_sub_page":
-        bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=user_subscriptions_list_markup((utils.non_order_user_info(call.message.chat.id) or []) + (utils.order_user_info(call.message.chat.id) or []), int(value)))
+        all_subs = (utils.non_order_user_info(call.message.chat.id) or []) + (utils.order_user_info(call.message.chat.id) or [])
+        try:
+            bot.edit_message_text(
+                "📋 لیست اشتراک‌های شما:\n\nبرای مدیریت، روی نام اشتراک کلیک کنید:",
+                call.message.chat.id, 
+                call.message.message_id, 
+                reply_markup=user_subscriptions_list_markup(all_subs, int(value))
+            )
+        except telebot.apihelper.ApiTelegramException as api_err:
+            if "message is not modified" in str(api_err):
+                bot.answer_callback_query(call.id, "📋 شما در حال مشاهده کل اشتراک‌ها هستید.")
+            else:
+                raise api_err
     elif key == "user_sub_info":
         sub = utils.find_order_subscription_by_uuid(value)
         if not sub: return bot.answer_callback_query(call.id, MESSAGES['UNKNOWN_ERROR'])
@@ -471,20 +483,38 @@ def callback_query(call: CallbackQuery):
     elif key == "user_sub_inactive":
         all_subs = (utils.non_order_user_info(call.message.chat.id) or []) + (utils.order_user_info(call.message.chat.id) or [])
         
-        # فیلتر جامع: پیدا کردن اشتراک‌هایی که یا دستی غیرفعال شده‌اند، یا زمانشان تمام شده، یا حجمشان صفر است
         inactive_subs = []
         for sub in all_subs:
-            is_manual_disabled = not sub.get('enable', True)
-            is_time_expired = sub.get('remaining_day', 1) == 0
-            is_data_expired = sub.get('usage', {}).get('remaining_usage_GB', 1) <= 0
+            # مهار کردن وضعیت enable چه به صورت بولین باشد، چه به صورت رشته متنی "False" یا "True"
+            enable_val = sub.get('enable', True)
+            is_manual_disabled = (enable_val is False) or (str(enable_val).strip().lower() == "false")
             
+            # بررسی وضعیت اتمام زمان یا حجم
+            is_time_expired = sub.get('remaining_day', 1) == 0
+            
+            usage_data = sub.get('usage', {})
+            remaining_usage = usage_data.get('remaining_usage_GB', 1)
+            is_data_expired = remaining_usage <= 0
+            
+            # اگر هرکدام از این شرایط برقرار باشد، یعنی اشتراک "غیرفعال یا منقضی" است
             if is_manual_disabled or is_time_expired or is_data_expired:
                 inactive_subs.append(sub)
         
         if not inactive_subs:
             return bot.answer_callback_query(call.id, "✅ اشتراک منقضی یا غیرفعالی ندارید.", show_alert=True)
             
-        bot.edit_message_text("📋 لیست اشتراک‌های منقضی یا غیرفعال:", call.message.chat.id, call.message.message_id, reply_markup=user_subscriptions_list_markup(inactive_subs, int(value)))
+        try:
+            bot.edit_message_text(
+                "📋 لیست اشتراک‌های منقضی یا غیرفعال:\n\nبرای مدیریت، روی نام اشتراک کلیک کنید:", 
+                call.message.chat.id, 
+                call.message.message_id, 
+                reply_markup=user_subscriptions_list_markup(inactive_subs, int(value))
+            )
+        except telebot.apihelper.ApiTelegramException as api_err:
+            if "message is not modified" in str(api_err):
+                bot.answer_callback_query(call.id, "📋 شما در حال مشاهده لیست اشتراک‌های غیرفعال هستید.")
+            else:
+                raise api_err
     elif key == "user_sub_search_name":
         msg = bot.send_message(call.message.chat.id, MESSAGES['REQUEST_SEND_NAME'], reply_markup=cancel_markup())
         bot.register_next_step_handler(msg, next_step_user_sub_search_name)

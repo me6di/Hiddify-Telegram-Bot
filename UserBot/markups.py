@@ -57,7 +57,7 @@ def user_info_non_sub_markup(uuid, is_active=True):
         
     markup.add(InlineKeyboardButton(KEY_MARKUP.get('BACK', 'برگشت'), callback_data="user_sub_page:1"))
     return markup
-    
+
 def confirm_subscription_markup(uuid):
     markup = InlineKeyboardMarkup()
     markup.row_width = 1
@@ -215,7 +215,7 @@ def user_subscriptions_list_markup(subs, page=1):
     
     # دکمه‌های ناوبری برای سوییچ بین لیست‌ها
     markup.add(
-        InlineKeyboardButton("📋 همه", callback_data="user_sub_page:1"),
+        InlineKeyboardButton("📋 همه اشتراک‌ها", callback_data="user_sub_page:1"),
         InlineKeyboardButton("⚠️ منقضی و غیرفعال", callback_data="user_sub_inactive:1")
     )
     
