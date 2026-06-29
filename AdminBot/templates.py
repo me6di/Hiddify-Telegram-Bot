@@ -65,7 +65,7 @@ def user_info_template(usr, server, header=""):
 {MESSAGES['INFO_REMAINING_DAYS']} {usr['remaining_day']}
 {MESSAGES['INFO_LAST_CONNECTION']} {usr['last_connection']}
 {MESSAGES['INFO_COMMENT']} {usr['comment']}
-{MESSAGES['INFO_UUID']} <code>{usr['uuid']}</code>
+🔑 UUID: <code>{usr['uuid']}</code>
 """
 
 # Server Info Message Template
