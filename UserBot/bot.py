@@ -380,14 +380,14 @@ def update_info_subscription(message: Message, uuid, markup=None):
         
     user = utils.dict_process(server['url'] + API_PATH, utils.users_to_dict([user_api]))[0]
     
-    # ترکیب شرط‌ها: اشتراک فقط در صورتی "فعال" است که هم Enable باشد، هم زمان داشته باشد و هم حجم
-    is_active = user.get('enable', True) and user.get('remaining_day', 1) > 0 and user['usage'].get('remaining_usage_GB', 1) > 0
+    # تفکیک وضعیت غیرفعال دستی و منقضی شده
+    is_enabled = user.get('enable', True)
+    is_expired = user.get('remaining_day', 1) == 0 or user['usage'].get('remaining_usage_GB', 1) <= 0
     
-    mrkup = markup or (user_info_non_sub_markup(sub['uuid'], is_active) if sub.get('telegram_id') else user_info_markup(sub['uuid'], is_active))
+    mrkup = markup or (user_info_non_sub_markup(sub['uuid'], is_enabled, is_expired) if sub.get('telegram_id') else user_info_markup(sub['uuid'], is_enabled, is_expired))
     
     try: bot.edit_message_text(chat_id=message.chat.id, message_id=message.message_id, text=user_info_template(sub['id'], server, user, MESSAGES['INFO_USER']), reply_markup=mrkup)
     except: pass
-
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call: CallbackQuery):
     bot.clear_step_handler(call.message)
@@ -421,10 +421,11 @@ def callback_query(call: CallbackQuery):
             
         user = utils.dict_process(server['url'] + API_PATH, utils.users_to_dict([user_api]))[0]
         
-        # ترکیب شرط‌ها: اشتراک فقط در صورتی "فعال" است که هم Enable باشد، هم زمان داشته باشد و هم حجم
-        is_active = user.get('enable', True) and user.get('remaining_day', 1) > 0 and user['usage'].get('remaining_usage_GB', 1) > 0
+        # تفکیک وضعیت غیرفعال دستی و منقضی شده
+        is_enabled = user.get('enable', True)
+        is_expired = user.get('remaining_day', 1) == 0 or user['usage'].get('remaining_usage_GB', 1) <= 0
         
-        mrkup = user_info_non_sub_markup(value, is_active) if sub.get('telegram_id') else user_info_markup(value, is_active)
+        mrkup = user_info_non_sub_markup(value, is_enabled, is_expired) if sub.get('telegram_id') else user_info_markup(value, is_enabled, is_expired)
         bot.edit_message_text(user_info_template(sub['id'], server, user, MESSAGES['INFO_USER']), call.message.chat.id, call.message.message_id, reply_markup=mrkup)
     elif key == "toggle_sub":
         action, uuid = data[1], data[2]
