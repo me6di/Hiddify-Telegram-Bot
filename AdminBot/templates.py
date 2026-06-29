@@ -17,15 +17,42 @@ def user_info_template(usr, server, header=""):
     else:
         usr['remaining_day'] = f"{usr['remaining_day']} {MESSAGES['DAY_EXPIRE']}"
 
+    # --- بخش استخراج هوشمند اطلاعات تلگرام مالک ---
+    tel_info = ""
+    try:
+        from Database.dbManager import USERS_DB
+        from Utils import utils
+        sub = utils.find_order_subscription_by_uuid(usr['uuid'])
+        telegram_id = None
+        if sub:
+            if 'telegram_id' in sub:
+                telegram_id = sub['telegram_id']
+            elif 'order_id' in sub:
+                order = USERS_DB.find_order(id=sub['order_id'])
+                if order:
+                    telegram_id = order[0]['telegram_id']
+        
+        if telegram_id:
+            t_user = USERS_DB.find_user(telegram_id=telegram_id)
+            if t_user:
+                t_user = t_user[0]
+                name = t_user.get('full_name', 'تنظیم نشده') or 'تنظیم نشده'
+                username = f"@{t_user['username']}" if t_user.get('username') else 'ندارد'
+                tel_info = f"\n👤 <b>اطلاعات تلگرام مالک:</b>\nآیدی عددی: <code>{t_user['telegram_id']}</code>\nنام: {name}\nیوزرنیم: {username}\n❖⬩╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍⬩❖"
+    except:
+        pass
+    # -----------------------------------------
+
     return f"""
 {header}
 {MESSAGES['INFO_USER_NAME']} <a href='{usr['link']}'> {usr['name']} </a>
-❖⬩╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍⬩❖
+❖⬩╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍⬩❖{tel_info}
 {MESSAGES['SERVER']} {server['title']}
 {MESSAGES['INFO_USAGE']} {usr['usage']['current_usage_GB']} {MESSAGES['OF']} {usr['usage']['usage_limit_GB']} {MESSAGES['GB']}
 {MESSAGES['INFO_REMAINING_DAYS']} {usr['remaining_day']}
 {MESSAGES['INFO_LAST_CONNECTION']} {usr['last_connection']}
 {MESSAGES['INFO_COMMENT']} {usr['comment']}
+{MESSAGES['INFO_UUID']} <code>{usr['uuid']}</code>
 """
 
 # Server Info Message Template
