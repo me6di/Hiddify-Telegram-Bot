@@ -636,6 +636,4 @@ def cancel(message: Message):
 def start():
     try: bot.set_my_commands([telebot.types.BotCommand("/start", BOT_COMMANDS['START'])])
     except: pass
-    bot.enable_save_next_step_handlers()
-    bot.load_next_step_handlers()
     bot.infinity_polling()
