@@ -17,31 +17,44 @@ def user_info_template(usr, server, header=""):
     else:
         usr['remaining_day'] = f"{usr['remaining_day']} {MESSAGES['DAY_EXPIRE']}"
 
-    # --- بخش استخراج هوشمند اطلاعات تلگرام مالک ---
+    # --- بخش استخراج کاملاً مستقل اطلاعات تلگرام مالک ---
     tel_info = ""
     try:
-        from Database.dbManager import USERS_DB
-        from Utils import utils
-        sub = utils.find_order_subscription_by_uuid(usr['uuid'])
-        telegram_id = None
-        if sub:
-            if 'telegram_id' in sub:
-                telegram_id = sub['telegram_id']
-            elif 'order_id' in sub:
-                order = USERS_DB.find_order(id=sub['order_id'])
-                if order:
-                    telegram_id = order[0]['telegram_id']
-        
-        if telegram_id:
-            t_user = USERS_DB.find_user(telegram_id=telegram_id)
-            if t_user:
-                t_user = t_user[0]
-                name = t_user.get('full_name', 'تنظیم نشده') or 'تنظیم نشده'
-                username = f"@{t_user['username']}" if t_user.get('username') else 'ندارد'
-                tel_info = f"\n👤 <b>اطلاعات تلگرام مالک:</b>\nآیدی عددی: <code>{t_user['telegram_id']}</code>\nنام: {name}\nیوزرنیم: {username}\n❖⬩╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍⬩❖"
-    except:
-        pass
-    # -----------------------------------------
+        import sqlite3
+        import os
+        db_path = os.path.join(os.getcwd(), "Database", "hidyBot.db")
+        if os.path.exists(db_path):
+            conn = sqlite3.connect(db_path, timeout=10)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            # پیدا کردن سابسکریپشن بر اساس UUID
+            cursor.execute("SELECT * FROM order_subscriptions WHERE uuid = ?", (usr['uuid'],))
+            sub = cursor.fetchone()
+            
+            telegram_id = None
+            if sub:
+                if 'telegram_id' in sub.keys() and sub['telegram_id']:
+                    telegram_id = sub['telegram_id']
+                elif 'order_id' in sub.keys() and sub['order_id']:
+                    cursor.execute("SELECT telegram_id FROM orders WHERE id = ?", (sub['order_id'],))
+                    order = cursor.fetchone()
+                    if order:
+                        telegram_id = order['telegram_id']
+                        
+            if telegram_id:
+                cursor.execute("SELECT * FROM users WHERE telegram_id = ?", (telegram_id,))
+                t_user = cursor.fetchone()
+                if t_user:
+                    name = t_user['full_name'] if t_user['full_name'] else 'تنظیم نشده'
+                    username = f"@{t_user['username']}" if t_user['username'] else 'ندارد'
+                    tel_info = f"\n👤 <b>اطلاعات تلگرام مالک:</b>\nآیدی عددی: <code>{telegram_id}</code>\nنام: {name}\nیوزرنیم: {username}\n❖⬩╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍⬩❖"
+            conn.close()
+    except Exception as e:
+        # برای خطایابی در صورت بروز مشکل (می‌توانید بعداً این خط را پاک کنید)
+        tel_info = f"\n⚠️ <i>خطا در دریافت اطلاعات تلگرام: {str(e)}</i>\n❖⬩╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍⬩❖"
+
+    # --------------------------------------------------
 
     return f"""
 {header}
