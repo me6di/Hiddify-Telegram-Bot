@@ -203,6 +203,12 @@ def user_subscriptions_list_markup(subs, page=1):
     
     markup.add(*keys)
     
+    # دکمه‌های جدید برای مدیریت اشتراک‌ها
+    markup.add(
+        InlineKeyboardButton("📋 همه", callback_data="user_sub_page:1"),
+        InlineKeyboardButton("⚠️ منقضی شده‌ها", callback_data="user_sub_inactive:1")
+    )
+    
     nav_keys = []
     if page > 1:
         nav_keys.append(InlineKeyboardButton(KEY_MARKUP.get('PREV_PAGE', 'قبلی'), callback_data=f"user_sub_page:{page - 1}"))
