@@ -445,41 +445,38 @@ def callback_query(call: CallbackQuery):
             USERS_DB.delete_non_order_subscription(uuid=value)
             try: bot.delete_message(call.message.chat.id, call.message.message_id)
             except: pass
-            return bot.answer_callback_query(call.id, "✅ سرویس از قبل در پنل حذف شده بود و از دیتابیس ربات هم پاک شد.", show_alert=True)
+            return bot.answer_callback_query(call.id, "✅ سرویس از سرور حذف شده بود و از ربات هم پاک شد.", show_alert=True)
             
-        user = utils.dict_process(URL, utils.users_to_dict([user_api]))[0]
-        
-        if not (user['remaining_day'] == 0 or user['usage']['remaining_usage_GB'] <= 0):
-            return bot.answer_callback_query(call.id, "❌ این سرویس هنوز منقضی نشده است!", show_alert=True)
+        # منطق جدید: اگر اشتراک enable نیست، اجازه حذف بده
+        if user_api.get('enable', True):
+            return bot.answer_callback_query(call.id, "❌ این سرویس فعال است. ابتدا آن را غیرفعال کنید.", show_alert=True)
             
         status = api.delete(URL, uuid=value)
             
         USERS_DB.delete_order_subscription(uuid=value)
         USERS_DB.delete_non_order_subscription(uuid=value)
         
-        # بخش پیام تایید حذف
         try: bot.delete_message(call.message.chat.id, call.message.message_id)
         except: pass
         
-        confirm_msg = bot.send_message(call.message.chat.id, "✅ سرویس منقضی شده با موفقیت حذف شد.")
+        confirm_msg = bot.send_message(call.message.chat.id, "✅ اشتراک غیرفعال با موفقیت حذف شد.")
         import time
         time.sleep(3)
         try: bot.delete_message(call.message.chat.id, confirm_msg.message_id)
         except: pass
         
-        # بازگشت به لیست
         all_subs = (utils.non_order_user_info(call.message.chat.id) or []) + (utils.order_user_info(call.message.chat.id) or [])
         if not all_subs: bot.send_message(call.message.chat.id, MESSAGES.get('SUBSCRIPTION_NOT_FOUND', 'اشتراکی یافت نشد.'), reply_markup=main_menu_keyboard_markup())
-        else: bot.send_message(call.message.chat.id, "📋 لیست اشتراک‌های شما:\n\nبرای مدیریت، روی نام اشتراک کلیک کنید:", reply_markup=user_subscriptions_list_markup(all_subs))
+        else: bot.send_message(call.message.chat.id, "📋 لیست اشتراک‌های شما:", reply_markup=user_subscriptions_list_markup(all_subs))
     elif key == "user_sub_inactive":
         all_subs = (utils.non_order_user_info(call.message.chat.id) or []) + (utils.order_user_info(call.message.chat.id) or [])
-        # فیلتر کردن کانفیگ‌های منقضی شده یا با حجم صفر
-        inactive_subs = [sub for sub in all_subs if sub.get('remaining_day', 0) == 0 or sub['usage']['remaining_usage_GB'] <= 0]
+        # شرط جدید: اگر enable فالس باشد (غیرفعال دستی) یا منقضی باشد (زمان/حجم صفر)
+        inactive_subs = [sub for sub in all_subs if not sub.get('enable', True) or sub.get('remaining_day', 0) == 0 or sub['usage']['remaining_usage_GB'] <= 0]
         
         if not inactive_subs:
             return bot.answer_callback_query(call.id, "✅ اشتراک غیرفعالی ندارید.", show_alert=True)
             
-        bot.edit_message_text("📋 لیست اشتراک‌های غیرفعال/منقضی شده:", call.message.chat.id, call.message.message_id, reply_markup=user_subscriptions_list_markup(inactive_subs, int(value)))
+        bot.edit_message_text("📋 لیست اشتراک‌های منقضی یا غیرفعال:", call.message.chat.id, call.message.message_id, reply_markup=user_subscriptions_list_markup(inactive_subs, int(value)))
     elif key == "user_sub_search_name":
         msg = bot.send_message(call.message.chat.id, MESSAGES['REQUEST_SEND_NAME'], reply_markup=cancel_markup())
         bot.register_next_step_handler(msg, next_step_user_sub_search_name)
