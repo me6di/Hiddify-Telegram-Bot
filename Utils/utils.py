@@ -85,9 +85,8 @@ def users_to_dict(users_dict):
                             'current_usage_GB': user['current_usage_GB'],
                             'last_reset_time': user['last_reset_time'], 'comment': user['comment'],
                             'telegram_id': user['telegram_id'],
-                            'added_by': user['added_by_uuid'], 'max_ips': None, 'enable': None})
+                            'added_by': user['added_by_uuid'], 'max_ips': None, 'enable': user.get('enable', True)})
     return users_array
-
 
 # Change telegram user data format
 def Telegram_users_to_dict(Tel_users_dict):
