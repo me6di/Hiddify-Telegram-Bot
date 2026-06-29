@@ -371,21 +371,22 @@ def next_step_to_qr(message: Message):
 
 def update_info_subscription(message: Message, uuid, markup=None):
     sub = utils.find_order_subscription_by_uuid(uuid)
-    if not sub: return bot.send_message(message.chat.id, MESSAGES['UNKNOWN_ERROR'], reply_markup=main_menu_keyboard_markup())
+    if not sub: return
     server = USERS_DB.find_server(id=sub['server_id'])[0]
-    
-    # اضافه شدن بررسی امنیتی
     user_api = api.find(server['url'] + API_PATH, uuid=sub['uuid'])
-    if not user_api:
-        return bot.send_message(message.chat.id, "❌ این سرویس در پنل سرور یافت نشد (احتمالا حذف شده است).", reply_markup=main_menu_keyboard_markup())
-        
+    if not user_api: return
+    
     user = utils.dict_process(server['url'] + API_PATH, utils.users_to_dict([user_api]))[0]
     
-    # بررسی هوشمندانه اتمام حجم یا زمان
-    is_expired = user['remaining_day'] == 0 or user['usage']['remaining_usage_GB'] <= 0
-    mrkup = markup or (user_info_non_sub_markup(sub['uuid'], is_expired) if sub.get('telegram_id') else user_info_markup(sub['uuid'], is_expired))
+    # منطق جدید: چک کردن وضعیت enable از پنل (اگر False باشد یعنی غیرفعال است)
+    is_enabled = user.get('enable', True)
     
-    try: bot.edit_message_text(chat_id=message.chat.id, message_id=message.message_id, text=user_info_template(sub['id'], server, user, MESSAGES['INFO_USER']), reply_markup=mrkup)
+    mrkup = markup or (user_info_non_sub_markup(sub['uuid'], not is_enabled) if sub.get('telegram_id') else user_info_markup(sub['uuid'], is_enabled))
+    
+    try: 
+        bot.edit_message_text(chat_id=message.chat.id, message_id=message.message_id, 
+                              text=user_info_template(sub['id'], server, user, MESSAGES['INFO_USER']), 
+                              reply_markup=mrkup)
     except: pass
 
 @bot.callback_query_handler(func=lambda call: True)
@@ -413,6 +414,24 @@ def callback_query(call: CallbackQuery):
         # بررسی هوشمندانه اتمام حجم یا زمان
         is_expired = user['remaining_day'] == 0 or user['usage']['remaining_usage_GB'] <= 0
         bot.edit_message_text(user_info_template(sub['id'], server, user, MESSAGES['INFO_USER']), call.message.chat.id, call.message.message_id, reply_markup=user_info_non_sub_markup(value, is_expired) if sub.get('telegram_id') else user_info_markup(value, is_expired))
+    elif key == "toggle_sub":
+        action, uuid = data[1], data[2]
+        sub = utils.find_order_subscription_by_uuid(uuid)
+        if not sub: return bot.answer_callback_query(call.id, MESSAGES['UNKNOWN_ERROR'])
+        
+        server = USERS_DB.find_server(id=sub['server_id'])[0]
+        URL = server['url'] + API_PATH
+        
+        # استفاده از تابع update برای تغییر وضعیت در پنل
+        new_enable_status = True if action == "enable" else False
+        status = api.update(URL, uuid=uuid, enable=new_enable_status)
+        
+        if status:
+            bot.answer_callback_query(call.id, f"✅ اشتراک با موفقیت { 'فعال' if action == 'enable' else 'غیرفعال' } شد.", show_alert=True)
+            # رفرش کردن صفحه اطلاعات
+            update_info_subscription(call.message, uuid)
+        else:
+            bot.answer_callback_query(call.id, "❌ خطا در تغییر وضعیت در پنل.", show_alert=True)
     elif key == "delete_expired_sub":
         sub = utils.find_order_subscription_by_uuid(value)
         if not sub: return bot.answer_callback_query(call.id, MESSAGES['UNKNOWN_ERROR'])
