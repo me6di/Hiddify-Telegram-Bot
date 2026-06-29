@@ -1347,8 +1347,8 @@ def callback_query(call: CallbackQuery):
             bot.answer_callback_query(call.id, "❌ این کاربر در هیچکدام از سرورهای متصل یافت نشد.", show_alert=True)
             return
 
-        # حذف کامل از پنل سرور هیدیفای
-        status = api.delete(del_url, uuid=value)
+        # تغییر نام تابع به remove طبق فایل api.py شما
+        status = api.remove(del_url, uuid=value)
         if not status:
             bot.delete_message(call.message.chat.id, msg_wait.message_id)
             bot.answer_callback_query(call.id, "❌ خطا در حذف کاربر از پنل سرور. لطفا مجددا تلاش کنید.", show_alert=True)
@@ -1358,16 +1358,12 @@ def callback_query(call: CallbackQuery):
         USERS_DB.delete_order_subscription(uuid=value)
         USERS_DB.delete_non_order_subscription(uuid=value)
         
-        bot.delete_message(call.message.chat.id, call.message.message_id) # پاک کردن پیام مشخصات کاربر
-        bot.delete_message(call.message.chat.id, msg_wait.message_id)
+        try: bot.delete_message(call.message.chat.id, call.message.message_id)
+        except: pass
+        try: bot.delete_message(call.message.chat.id, msg_wait.message_id)
+        except: pass
+        
         bot.send_message(call.message.chat.id, "✅ کاربر با موفقیت از پنل و دیتابیس ربات حذف شد.", reply_markup=markups.main_menu_keyboard_markup())
-        # if not status:
-        #     bot.send_message(call.message.chat.id, MESSAGES['ERROR_UNKNOWN'],
-        #                      reply_markup=markups.main_menu_keyboard_markup())
-        #     return
-        # bot.delete_message(call.message.chat.id, call.message.message_id)
-        # bot.send_message(call.message.chat.id, MESSAGES['SUCCESS_USER_DELETED'],
-        #                  reply_markup=markups.main_menu_keyboard_markup())
     # Edit User Main Button Callback
     elif key == "user_edit":
         if server_mode == "All":
