@@ -460,8 +460,13 @@ def callback_query(call: CallbackQuery):
             except: pass
             return bot.answer_callback_query(call.id, "✅ سرویس از سرور حذف شده بود و از ربات هم پاک شد.", show_alert=True)
             
-        # منطق جدید: اگر اشتراک enable نیست، اجازه حذف بده
-        if user_api.get('enable', True):
+        user = utils.dict_process(URL, utils.users_to_dict([user_api]))[0]
+        
+        is_enabled = user.get('enable', True)
+        is_expired = user.get('remaining_day', 1) == 0 or user['usage'].get('remaining_usage_GB', 1) <= 0
+        
+        # منطق نهایی و صحیح: اگر اشتراک هم فعال است و هم منقضی نشده، اجازه حذف نده
+        if is_enabled and not is_expired:
             return bot.answer_callback_query(call.id, "❌ این سرویس فعال است. ابتدا آن را غیرفعال کنید.", show_alert=True)
             
         status = api.delete(URL, uuid=value)
@@ -472,7 +477,7 @@ def callback_query(call: CallbackQuery):
         try: bot.delete_message(call.message.chat.id, call.message.message_id)
         except: pass
         
-        confirm_msg = bot.send_message(call.message.chat.id, "✅ اشتراک غیرفعال با موفقیت حذف شد.")
+        confirm_msg = bot.send_message(call.message.chat.id, "✅ اشتراک با موفقیت حذف شد.")
         import time
         time.sleep(3)
         try: bot.delete_message(call.message.chat.id, confirm_msg.message_id)
