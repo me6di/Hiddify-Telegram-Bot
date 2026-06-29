@@ -470,8 +470,12 @@ def callback_query(call: CallbackQuery):
         else: bot.send_message(call.message.chat.id, "📋 لیست اشتراک‌های شما:", reply_markup=user_subscriptions_list_markup(all_subs))
     elif key == "user_sub_inactive":
         all_subs = (utils.non_order_user_info(call.message.chat.id) or []) + (utils.order_user_info(call.message.chat.id) or [])
-        # شرط جدید: اگر enable فالس باشد (غیرفعال دستی) یا منقضی باشد (زمان/حجم صفر)
-        inactive_subs = [sub for sub in all_subs if not sub.get('enable', True) or sub.get('remaining_day', 0) == 0 or sub['usage']['remaining_usage_GB'] <= 0]
+        
+        # فیلتر دقیق: اشتراک‌هایی که enable آن‌ها False است یا remaining_day آن‌ها 0 است
+        inactive_subs = [
+            sub for sub in all_subs 
+            if sub.get('enable') is False or sub.get('remaining_day', 0) == 0 or sub['usage'].get('remaining_usage_GB', 1) <= 0
+        ]
         
         if not inactive_subs:
             return bot.answer_callback_query(call.id, "✅ اشتراک غیرفعالی ندارید.", show_alert=True)

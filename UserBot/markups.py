@@ -216,12 +216,13 @@ def user_subscriptions_list_markup(subs, page=1):
     
     markup.add(*keys)
     
-    # تغییر نام دکمه در بخش دکمه‌های ناوبری
+    # دکمه‌های ناوبری برای سوییچ بین لیست‌ها
     markup.add(
         InlineKeyboardButton("📋 همه", callback_data="user_sub_page:1"),
         InlineKeyboardButton("⚠️ منقضی و غیرفعال", callback_data="user_sub_inactive:1")
     )
     
+    # ... بقیه کدهای دکمه‌های قبلی/بعدی (صفحه‌بندی) را دست نزنید ...
     nav_keys = []
     if page > 1:
         nav_keys.append(InlineKeyboardButton(KEY_MARKUP.get('PREV_PAGE', 'قبلی'), callback_data=f"user_sub_page:{page - 1}"))
