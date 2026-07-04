@@ -1441,7 +1441,6 @@ def callback_query(call: CallbackQuery):
         bot.register_next_step_handler(call.message, edit_user_usage, value)
     # Edit User - Reset Usage Callback
     elif key == "user_edit_reset_usage":
-        # علاوه بر صفر کردن حجم، وضعیت را به روشن (enable=True) تغییر می‌دهیم
         status = api.update(URL, uuid=value, current_usage_GB=0, enable=True)
         if not status:
             bot.answer_callback_query(call.id, "❌ خطا در برقراری ارتباط با پنل", show_alert=True)
@@ -1449,16 +1448,21 @@ def callback_query(call: CallbackQuery):
             
         bot.answer_callback_query(call.id, "✅ حجم مصرفی با موفقیت صفر شد.", show_alert=True)
         
-        # رفرش کردن خودکار صفحه برای مشاهده نتیجه
+        # رفرش کردن خودکار صفحه با مهار خطای تکراری بودن متن
         usr = utils.user_info(URL, value)
         if usr:
             msg = templates.user_info_template(usr, selected_server, MESSAGES.get('EDITED_USER_INFO', 'اطلاعات ویرایش شده:'))
-            try: bot.edit_message_text(msg, call.message.chat.id, call.message.message_id, reply_markup=markups.edit_user_markup(value))
-            except: pass
+            try:
+                bot.edit_message_text(msg, call.message.chat.id, call.message.message_id, reply_markup=markups.edit_user_markup(value))
+            except telebot.apihelper.ApiTelegramException as e:
+                if "message is not modified" not in str(e):
+                    raise e
+            except Exception:
+                pass
 
     # Edit User - Reset Days Callback
     elif key == "user_edit_reset_days":
-        # قرار دادن start_date روی None بهترین روش برای ریست کامل زمان در هیدیفای است
+        import datetime # حل مشکل UnboundLocalError
         last_reset_time = datetime.datetime.now().strftime("%Y-%m-%d")
         status = api.update(URL, uuid=value, start_date=None, last_reset_time=last_reset_time, enable=True)
         
@@ -1468,12 +1472,17 @@ def callback_query(call: CallbackQuery):
             
         bot.answer_callback_query(call.id, "✅ مدت زمان اشتراک با موفقیت بازنشانی شد.", show_alert=True)
         
-        # رفرش کردن خودکار صفحه برای مشاهده نتیجه
+        # رفرش کردن خودکار صفحه با مهار خطای تکراری بودن متن
         usr = utils.user_info(URL, value)
         if usr:
             msg = templates.user_info_template(usr, selected_server, MESSAGES.get('EDITED_USER_INFO', 'اطلاعات ویرایش شده:'))
-            try: bot.edit_message_text(msg, call.message.chat.id, call.message.message_id, reply_markup=markups.edit_user_markup(value))
-            except: pass
+            try:
+                bot.edit_message_text(msg, call.message.chat.id, call.message.message_id, reply_markup=markups.edit_user_markup(value))
+            except telebot.apihelper.ApiTelegramException as e:
+                if "message is not modified" not in str(e):
+                    raise e
+            except Exception:
+                pass
     # Edit User - Edit Days Callback
     elif key == "user_edit_days":
         bot.send_message(call.message.chat.id, MESSAGES['ENTER_NEW_DAYS'],
