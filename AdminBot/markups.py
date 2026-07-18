@@ -147,6 +147,8 @@ def search_user_markup(server_id=None):
 
 # Users Bot Management - Inline Keyboard Markup
 def users_bot_management_markup():
+    import json
+    import os
     markup = InlineKeyboardMarkup()
     markup.row_width = 2
     markup.add(InlineKeyboardButton(KEY_MARKUP.get('BOT_USERS_MANAGEMENT', 'مدیریت کاربران'), callback_data="bot_users_list_management:None"),
@@ -156,11 +158,21 @@ def users_bot_management_markup():
     markup.add(InlineKeyboardButton(KEY_MARKUP.get('USERS_BOT_OWNER_INFO', 'اطلاعات پشتیبانی'), callback_data="users_bot_owner_info:None"),
                InlineKeyboardButton(KEY_MARKUP.get('USERS_BOT_SEND_MSG_USERS', 'ارسال پیام همگانی'), callback_data="users_bot_send_msg_users:None"))
     
-    # دکمه مدیریت کدهای تخفیف
+    # خواندن وضعیت حالت تایید خودکار برای نمایش روی دکمه
+    auto_confirm_status = "❌"
+    try:
+        if os.path.exists('auto_confirm.json'):
+            with open('auto_confirm.json', 'r') as f:
+                if json.load(f).get('is_active'):
+                    auto_confirm_status = "✅"
+    except: pass
+    
+    # اضافه شدن دکمه تایید خودکار
+    markup.add(InlineKeyboardButton(f"🤖 تایید خودکار فیش‌ها | {auto_confirm_status}", callback_data="toggle_auto_confirm:None"))
     markup.add(InlineKeyboardButton("🎁 مدیریت کدهای تخفیف", callback_data="admin_discount_management:None"))
     markup.add(InlineKeyboardButton(KEY_MARKUP.get('BACK', 'برگشت'), callback_data="del_msg:None"))
     return markup
-    
+       
 def admin_discount_markup():
     markup = InlineKeyboardMarkup()
     markup.row_width = 1

@@ -174,6 +174,102 @@ def next_step_apply_discount(message: Message):
     settings = utils.all_configs_settings()
     bot.send_message(message.chat.id, owner_info_template(settings['card_number'], settings['card_holder'], state['pay_amount']), reply_markup=send_screenshot_markup(state['id']))
 
+import threading
+import json
+import time
+
+def auto_confirm_payment(payment_id, telegram_id, virtual_add):
+    # تاخیر تصادفی بین ۵ تا ۱۵ دقیقه (۳۰۰ تا ۹۰۰ ثانیه)
+    delay = random.randint(300, 900)
+    time.sleep(delay)
+    
+    # بررسی اینکه آیا ادمین خودش زودتر تایید نکرده باشد
+    payment_info = USERS_DB.find_payment(id=payment_id)
+    if not payment_info or payment_info[0]['approved'] == 1:
+        return
+        
+    payment_info = payment_info[0]
+    method = payment_info['payment_method']
+    target_plan_id = None
+    target_uuid = None
+    is_renewal_action = False
+    
+    try:
+        parts = method.split('|')
+        for part in parts:
+            if part.startswith("Plan:"):
+                pid = int(part.split(":")[1])
+                if pid < 0:
+                    is_renewal_action = True
+                    target_plan_id = abs(pid)
+                else:
+                    target_plan_id = pid
+            elif part.startswith("UUID:"):
+                target_uuid = part.split(":")[1]
+    except Exception: pass
+
+    wallet = USERS_DB.find_wallet(telegram_id=telegram_id)
+    if not wallet:
+        USERS_DB.add_wallet(telegram_id)
+        wallet = USERS_DB.find_wallet(telegram_id=telegram_id)
+    
+    # اعمال تایید پرداخت در دیتابیس
+    if USERS_DB.edit_payment(payment_id, approved=True):
+        new_balance = int(wallet[0]['balance']) + virtual_add
+        USERS_DB.edit_wallet(telegram_id, balance=new_balance)
+        
+        # ثبت تراکنش در فایل گزارش تایید خودکار
+        try:
+            if os.path.exists('auto_confirm.json'):
+                with open('auto_confirm.json', 'r') as f:
+                    auto_data = json.load(f)
+                if auto_data.get('is_active'):
+                    auto_data['confirmed_count'] += 1
+                    auto_data['total_amount'] += virtual_add
+                    user_info = USERS_DB.find_user(telegram_id=telegram_id)[0]
+                    name = user_info['full_name'] or str(telegram_id)
+                    auto_data['payments'].append(f"👤 {name} | 💰 {utils.rial_to_toman(virtual_add)} تومان | 🧾 #{payment_id}")
+                    with open('auto_confirm.json', 'w') as f:
+                        json.dump(auto_data, f)
+        except Exception as e: 
+            logging.error(f"Error saving auto confirm report: {e}")
+
+        # ۱. منطق تمدید خودکار (اگر کاربر قصد تمدید داشت)
+        if is_renewal_action and target_uuid and target_plan_id:
+            try:
+                plan = USERS_DB.find_plan(id=target_plan_id)[0]
+                wallet_now = USERS_DB.find_wallet(telegram_id=telegram_id)[0]
+                if plan['price'] <= wallet_now['balance']:
+                    sub = utils.find_order_subscription_by_uuid(target_uuid)
+                    if sub:
+                        server = USERS_DB.find_server(id=sub['server_id'])[0]
+                        URL = server['url'] + API_PATH
+                        panel_user = api.find(URL, target_uuid)
+                        remaining_gb = max(0, panel_user.get('usage_limit_GB', 0) - panel_user.get('current_usage_GB', 0)) if panel_user else 0
+                        new_total_gb = plan['size_gb'] + remaining_gb
+                        
+                        import datetime
+                        last_reset_time = datetime.datetime.now().strftime("%Y-%m-%d")
+                        if api.update(URL, uuid=target_uuid, package_days=plan['days'], usage_limit_GB=new_total_gb, current_usage_GB=0, start_date=last_reset_time, enable=True):
+                            USERS_DB.edit_wallet(telegram_id, balance=wallet_now['balance'] - plan['price'])
+                            order_id = random.randint(1000000, 9999999)
+                            name_for_db = api.find(URL, target_uuid).get('name', 'تمدیدی')
+                            USERS_DB.add_order(order_id, telegram_id, f"تمدید: {name_for_db}", plan['id'], datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                            bot.send_message(int(telegram_id), f"✅ پرداخت شما تایید شد.\n\n🔄 اشتراک شما با نام <b>{name_for_db}</b> با موفقیت تمدید شد!")
+                            return
+            except Exception: pass
+        
+        # ۲. ارسال پیام شارژ عادی (اگر تمدید نبود)
+        try:
+            user_msg = f"✅ پرداخت شما بررسی و تایید شد.\n💳 کیف پول شما با موفقیت به مبلغ {utils.rial_to_toman(virtual_add)} شارژ شد."
+            user_markup = None
+            if target_plan_id and not is_renewal_action:
+                from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+                user_markup = InlineKeyboardMarkup()
+                user_msg += "\n\n🛍 موجودی کافیست. جهت صدور کانفیگ روی دکمه زیر کلیک کنید:"
+                user_markup.add(InlineKeyboardButton("🛍 تکمیل خرید و دریافت کانفیگ", callback_data=f"confirm_buy_from_wallet:{target_plan_id}"))
+            bot.send_message(int(telegram_id), user_msg, reply_markup=user_markup)
+        except Exception: pass
 def next_step_send_screenshot(message, payment_id):
     if is_it_cancel(message): return
     state = user_charge_state.get(message.chat.id)
@@ -230,6 +326,17 @@ def next_step_send_screenshot(message, payment_id):
             # پاک کردن حافظه موقت پس از اتمام
             if message.chat.id in user_charge_state:
                 del user_charge_state[message.chat.id]
+                
+            # --- افزونه چک کردن حالت تایید خودکار ---
+            try:
+                if os.path.exists('auto_confirm.json'):
+                    with open('auto_confirm.json', 'r') as f:
+                        auto_data = json.load(f)
+                    if auto_data.get('is_active'):
+                        threading.Thread(target=auto_confirm_payment, args=(state['id'], message.chat.id, state['amount'])).start()
+            except Exception as e:
+                logging.error(f"Auto Confirm Mode Error: {e}")
+            # ----------------------------------------
         else: 
             bot.send_message(message.chat.id, MESSAGES.get('UNKNOWN_ERROR', 'خطا در ثبت دیتابیس.'), reply_markup=main_menu_keyboard_markup())
     except Exception as e:

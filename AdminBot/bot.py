@@ -1881,7 +1881,62 @@ def callback_query(call: CallbackQuery):
     elif key == "users_bot_management_menu":
         bot.edit_message_text(MESSAGES.get('USERS_BOT_MANAGEMENT', 'بخش مدیریت ربات کاربران:'), call.message.chat.id, call.message.message_id,
                               reply_markup=markups.users_bot_management_markup())
+    
+    elif key == "toggle_auto_confirm":
+        import json
+        import os
+        from datetime import datetime
+        file_path = 'auto_confirm.json'
         
+        # دیتای پیش‌فرض در صورت نبود فایل
+        default_data = {"is_active": False, "confirmed_count": 0, "total_amount": 0, "payments": [], "start_time": ""}
+        
+        try:
+            if os.path.exists(file_path):
+                with open(file_path, 'r') as f:
+                    data = json.load(f)
+            else:
+                data = default_data
+        except Exception:
+            data = default_data
+            
+        # تغییر وضعیت دکمه
+        data["is_active"] = not data.get("is_active", False)
+        
+        if data["is_active"]:
+            # روشن شدن: ریست کردن آمار
+            data["confirmed_count"] = 0
+            data["total_amount"] = 0
+            data["payments"] = []
+            data["start_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            bot.answer_callback_query(call.id, "✅ تایید خودکار فیش‌ها فعال شد!", show_alert=True)
+        else:
+            # خاموش شدن: ساخت و ارسال فاکتور گزارش برای ادمین
+            report_msg = "🤖 <b>گزارش پایان تایید خودکار</b>\n\n"
+            report_msg += f"⏱ زمان شروع: {data.get('start_time', 'نامشخص')}\n"
+            report_msg += f"⏱ زمان پایان: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+            report_msg += f"✅ تعداد تایید شده: {data.get('confirmed_count', 0)} عدد\n"
+            report_msg += f"💰 مجموع درآمد: {utils.rial_to_toman(data.get('total_amount', 0))} تومان\n\n"
+            
+            if data.get("payments"):
+                report_msg += "📋 <b>لیست واریزی‌ها:</b>\n"
+                for p in data["payments"]:
+                    report_msg += f"➖ {p}\n"
+            else:
+                report_msg += "هیچ واریزی در این مدت انجام نشد."
+                
+            bot.send_message(call.message.chat.id, report_msg)
+            bot.answer_callback_query(call.id, "❌ تایید خودکار غیرفعال شد.", show_alert=True)
+            
+        with open(file_path, 'w') as f:
+            json.dump(data, f)
+            
+        # رفرش کردن صفحه برای تغییر تیک دکمه از ❌ به ✅
+        bot.edit_message_text(MESSAGES.get('USERS_BOT_MANAGEMENT', 'بخش مدیریت ربات کاربران:'), 
+                              call.message.chat.id, 
+                              call.message.message_id,
+                              reply_markup=markups.users_bot_management_markup())
+    
     elif key == "bot_users_list_management":
          bot.edit_message_text(KEY_MARKUP['BOT_USERS_MANAGEMENT'], call.message.chat.id, call.message.message_id,
                               reply_markup=markups.users_bot_users_management_markup())
