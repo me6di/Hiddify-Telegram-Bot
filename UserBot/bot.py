@@ -220,7 +220,12 @@ def next_step_send_screenshot(message, payment_id):
                 except Exception as admin_err: 
                     logging.error(f"Error sending receipt to ADMIN {ADMIN}: {admin_err}")
                     
-            bot.send_message(message.chat.id, "✅ رسید شما با موفقیت ثبت شد و در انتظار تایید ادمین است.", reply_markup=main_menu_keyboard_markup())
+            success_msg = (
+                "✅ <b>پرداخت شما در سیستم ثبت شد!</b>\n\n"
+                "⏳ درخواست شما در اسرع وقت بررسی خواهد شد. با توجه به زمان‌بندی حضور ادمین، تایید نهایی ممکن است <b>بین ۵ دقیقه تا ۱۲ ساعت</b> زمان ببرد.\n\n"
+                "🙏 از همراهی و صبوری شما مچکریم."
+            )
+            bot.send_message(message.chat.id, success_msg, reply_markup=main_menu_keyboard_markup())
             
             # پاک کردن حافظه موقت پس از اتمام
             if message.chat.id in user_charge_state:
