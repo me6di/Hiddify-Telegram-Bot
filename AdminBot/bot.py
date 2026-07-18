@@ -1280,8 +1280,7 @@ def callback_query(call: CallbackQuery):
     # ----------------------------------- Users List Area Callbacks -----------------------------------
     # Single User Info Callback
     if key == "info":
-        global selected_server
-        global URL
+       
         
         target_server = None
         target_url = None
@@ -1398,8 +1397,7 @@ def callback_query(call: CallbackQuery):
         bot.send_message(call.message.chat.id, "✅ کاربر با موفقیت از پنل و دیتابیس ربات حذف شد.", reply_markup=markups.main_menu_keyboard_markup())
    # Edit User Main Button Callback
     elif key == "user_edit":
-        global selected_server
-        global URL
+       
         
         sub = utils.find_order_subscription_by_uuid(value)
         if sub:
