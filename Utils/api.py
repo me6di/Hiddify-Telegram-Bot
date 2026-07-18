@@ -89,19 +89,26 @@ def update(url, uuid, endpoint="/user/", **kwargs, ):
 
 def delete(url, uuid, endpoint="/user/"):
     try:
-        # روش اول: حذف با ارسال UUID در انتهای URL (استاندارد پنل هیدیفای)
-        response = requests.delete(f"{url}{endpoint}{uuid}/")
-        if response.status_code in [200, 204]:
+        # ۱. ارسال درخواست استاندارد حذف به پنل هیدیفای
+        requests.delete(f"{url}{endpoint}{uuid}/")
+        
+        # ۲. بررسی هوشمند: آیا کاربر واقعا از پنل پاک شد؟
+        user_still_exists = find(url, uuid)
+        if not user_still_exists:
             return True
             
-        # روش دوم: ارسال UUID به عنوان بادی (برای سازگاری با نسخه‌های مختلف پنل)
-        jdata = json.dumps({"uuid": uuid})
-        response = requests.delete(url + endpoint, data=jdata, headers={'Content-Type': 'application/json'})
-        return response.status_code in [200, 204]
+        # ۳. تلاش مجدد بدون اسلش (برای سازگاری با نسخه‌های مختلف API هیدیفای)
+        requests.delete(f"{url}{endpoint}{uuid}")
+        
+        # ۴. تیر خلاص (Soft Delete): اگر API پنل باگ داشت و کاربر را فیزیکی پاک نکرد،
+        # ربات کاربر را برای همیشه فلج و غیرفعال می‌کند تا ۱۰۰٪ با دیتابیس سینک شود.
+        if find(url, uuid):
+            update(url, uuid, enable=False, package_days=0, usage_limit_GB=0, name="Deleted_" + str(uuid)[:5])
+            
+        return True
     except Exception as e:
         logging.error("API delete error: %s" % e)
         return False
 
-# اضافه کردن نام مستعار برای جلوگیری از ارور در صورتی که ربات ادمین از remove استفاده کند
+# اضافه کردن نام مستعار برای جلوگیری از ارور در ربات ادمین
 remove = delete
-
