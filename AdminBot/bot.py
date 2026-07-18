@@ -315,29 +315,43 @@ def all_server_search_user_name(message: Message):
 
 # All Servers Search User - UUID
 def all_server_search_user_uuid(message: Message):
-    selected_server = None
+    global selected_server
+    global URL
+    
     if is_it_cancel(message):
         return
     msg_wait = bot.send_message(message.chat.id, MESSAGES['WAIT'], reply_markup=markups.while_edit_user_markup())
-    servers = USERS_DB.select_servers()
-    if servers:
-        for server in servers:
-            URL = server['url'] + API_PATH
-            user = utils.search_user_by_uuid(URL, message.text)
-            if user:
-                selected_server = server
-                break
+    
+    user = None
+    target_server = None
+    
+    # 1. جستجو در دیتابیس ربات برای پیدا کردن سرور دقیق
+    sub = utils.find_order_subscription_by_uuid(message.text)
+    if sub:
+        target_server = USERS_DB.find_server(id=sub['server_id'])[0]
+        URL = target_server['url'] + API_PATH
+        user = utils.search_user_by_uuid(URL, message.text)
+    else:
+        # 2. در غیر این صورت جستجو در تمام سرورها
+        servers = USERS_DB.select_servers()
+        if servers:
+            for server in servers:
+                URL = server['url'] + API_PATH
+                user = utils.search_user_by_uuid(URL, message.text)
+                if user:
+                    target_server = server
+                    break
     
     bot.delete_message(message.chat.id, msg_wait.message_id)
-    if not user:
+    if not user or not target_server:
         bot.send_message(message.chat.id, MESSAGES['ERROR_USER_NOT_FOUND'],
                          reply_markup=markups.main_menu_keyboard_markup())
         return
     
+    selected_server = target_server
     bot.send_message(message.chat.id, MESSAGES['SUCCESS_SEARCH_USER'], reply_markup=markups.main_menu_keyboard_markup())
-    bot.send_message(message.chat.id, templates.user_info_template(user, selected_server, MESSAGES['SEARCH_RESULT']),
+    bot.send_message(message.chat.id, templates.user_info_template(user, target_server, MESSAGES['SEARCH_RESULT']),
                      reply_markup=markups.user_info_markup(user['uuid']))
-
 
 # All Servers Search User - Config
 def all_server_search_user_config(message: Message):
@@ -1266,24 +1280,42 @@ def callback_query(call: CallbackQuery):
     # ----------------------------------- Users List Area Callbacks -----------------------------------
     # Single User Info Callback
     if key == "info":
-        if server_mode == "Single":
-            usr = utils.user_info(URL, value)
+        global selected_server
+        global URL
+        
+        target_server = None
+        target_url = None
+        
+        # 1. پیدا کردن هوشمندانه سرور از دیتابیس ربات
+        sub = utils.find_order_subscription_by_uuid(value)
+        if sub:
+            target_server = USERS_DB.find_server(id=sub['server_id'])[0]
+            target_url = target_server['url'] + API_PATH
         else:
+            # 2. جستجو در تمام سرورها
             servers = USERS_DB.select_servers()
             if servers:
                 for server in servers:
-                    URL = server['url'] + API_PATH
-                    usr = utils.user_info(URL, value)
-                    if usr:
-                        selected_server = server
+                    if api.find(server['url'] + API_PATH, value):
+                        target_server = server
+                        target_url = server['url'] + API_PATH
                         break
+                        
+        if not target_server:
+            bot.answer_callback_query(call.id, "❌ کاربر در هیچکدام از سرورها یافت نشد.", show_alert=True)
+            return
+
+        usr = utils.user_info(target_url, value)
         if not usr:
             bot.send_message(call.message.chat.id, MESSAGES['ERROR_USER_NOT_FOUND'])
             return
+            
+        selected_server = target_server
+        URL = target_url
+        
         msg = templates.user_info_template(usr, selected_server)
         bot.send_message(call.message.chat.id, msg,
                         reply_markup=markups.user_info_markup(usr['uuid']))
-
 
     # Next Page Callback
     elif key == "next":
@@ -1364,17 +1396,25 @@ def callback_query(call: CallbackQuery):
         except: pass
         
         bot.send_message(call.message.chat.id, "✅ کاربر با موفقیت از پنل و دیتابیس ربات حذف شد.", reply_markup=markups.main_menu_keyboard_markup())
-    # Edit User Main Button Callback
+   # Edit User Main Button Callback
     elif key == "user_edit":
-        if server_mode == "All":
+        global selected_server
+        global URL
+        
+        sub = utils.find_order_subscription_by_uuid(value)
+        if sub:
+            server = USERS_DB.find_server(id=sub['server_id'])[0]
+            selected_server = server
+            URL = server['url'] + API_PATH
+        else:
             servers = USERS_DB.select_servers()
             if servers:
                 for server in servers:
-                    users_list = api.find(server['url'] + API_PATH, value)
-                    if users_list:
+                    if api.find(server['url'] + API_PATH, value):
                         URL = server['url'] + API_PATH
                         selected_server = server
                         break
+                        
         bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id,
                                       reply_markup=markups.edit_user_markup(value))
 
@@ -1383,10 +1423,14 @@ def callback_query(call: CallbackQuery):
         msg_wait = bot.send_message(call.message.chat.id, MESSAGES.get('WAIT', '⏳ در حال ساخت لینک و کیوآرکد...'))
         from config import SUB_URL
         
-        target_server = selected_server
-        target_url = URL
+        target_server = None
+        target_url = None
         
-        if server_mode == "All":
+        sub = utils.find_order_subscription_by_uuid(value)
+        if sub:
+            target_server = USERS_DB.find_server(id=sub['server_id'])[0]
+            target_url = target_server['url'] + API_PATH
+        else:
             servers = USERS_DB.select_servers()
             if servers:
                 for server in servers:
@@ -1404,20 +1448,17 @@ def callback_query(call: CallbackQuery):
             bot.delete_message(call.message.chat.id, msg_wait.message_id)
             return bot.answer_callback_query(call.id, "❌ کاربر در پنل یافت نشد.", show_alert=True)
 
-        # استخراج هوشمند دامنه (سرور اصلی یا سرورهای جانبی)
         dynamic_sub_url = target_server.get('sub_url') if target_server.get('sub_url') else SUB_URL
         base_sub = dynamic_sub_url if dynamic_sub_url.endswith("/") else f"{dynamic_sub_url}/"
         user_name = usr['name'].replace(' ', '_')
         my_sub_link = f"{base_sub}{value}/#{user_name}"
 
-        # ساخت کیوآرکد
         qr_code = utils.txt_to_qr(my_sub_link)
         bot.delete_message(call.message.chat.id, msg_wait.message_id)
         
         if not qr_code:
             return bot.answer_callback_query(call.id, "❌ خطا در ساخت کیوآرکد.", show_alert=True)
 
-        # ارسال به صورت تصویر
         bot.send_photo(
             call.message.chat.id,
             photo=qr_code,
