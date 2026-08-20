@@ -2255,11 +2255,14 @@ def callback_query(call: CallbackQuery):
         # مرتب‌سازی بر اساس جدیدترین
         approved_payments_list.sort(key=operator.itemgetter('created_at'), reverse=True)
         
-        # ----- محاسبه آمار زمانی (بدون ایمپورت محلی تا دکمه‌ها خراب نشوند) -----
-        now = datetime.datetime.now()
-        one_day_ago = now - datetime.timedelta(days=1)
-        seven_days_ago = now - datetime.timedelta(days=7)
-        thirty_days_ago = now - datetime.timedelta(days=30)
+        # ----- مهار تداخل ماژول‌ها با استفاده از نام‌های مستعار اختصاصی -----
+        import datetime as dt_lib
+        import os as os_lib
+        
+        now = dt_lib.datetime.now()
+        one_day_ago = now - dt_lib.timedelta(days=1)
+        seven_days_ago = now - dt_lib.timedelta(days=7)
+        thirty_days_ago = now - dt_lib.timedelta(days=30)
         
         count_total, sum_total = len(approved_payments_list), 0
         count_30d, sum_30d = 0, 0
@@ -2275,7 +2278,7 @@ def callback_query(call: CallbackQuery):
                 p_amount = p['payment_amount']
                 sum_total += p_amount
                 
-                p_date = datetime.datetime.strptime(p['created_at'], "%Y-%m-%d %H:%M:%S")
+                p_date = dt_lib.datetime.strptime(p['created_at'], "%Y-%m-%d %H:%M:%S")
                 
                 if p_date >= thirty_days_ago:
                     count_30d += 1
@@ -2311,9 +2314,15 @@ def callback_query(call: CallbackQuery):
         stats_msg += f"⬖ تراکنشات 24 ساعت گذشته: {count_1d}\n"
         stats_msg += f"⬖ مبلغ 24 ساعت گذشته: {utils.rial_to_toman(sum_1d)} تومان\n"
         
-        # ۱. ویرایش پیام قبلی برای نمایش آمار به جای متن ساده
-        bot.edit_message_text(stats_msg, call.message.chat.id, call.message.message_id,
-                              reply_markup=markups.bot_user_item_list_markup(approved_payments_list))
+        # ۱. مهار ارور تکراری بودن متن برای تلگرام
+        try:
+            bot.edit_message_text(stats_msg, call.message.chat.id, call.message.message_id,
+                                  reply_markup=markups.bot_user_item_list_markup(approved_payments_list))
+        except telebot.apihelper.ApiTelegramException as e:
+            if "message is not modified" not in str(e):
+                raise e
+            else:
+                bot.answer_callback_query(call.id, "نمایش آمار تراکنش‌ها", show_alert=False)
                               
         # ۲. ارسال ۵ فیش واریزی اخیر
         bot.send_message(call.message.chat.id, "🖼 <b>۵ تراکنش تایید شده‌ی اخیر:</b>")
@@ -2327,14 +2336,14 @@ def callback_query(call: CallbackQuery):
             
             caption = f"🧾 تراکنش: #{p['id']}\n👤 کاربر: {name}\n🆔 آیدی: <code>{telegram_id}</code>\n💬 یوزرنیم: {username}\n💰 مبلغ: {utils.rial_to_toman(p['payment_amount'])} تومان\n📅 تاریخ: {p['created_at']}"
             
-            photo_path = os.path.join(os.getcwd(), 'UserBot', 'Receiptions', p['payment_image'])
+            photo_path = os_lib.path.join(os_lib.getcwd(), 'UserBot', 'Receiptions', p['payment_image'])
             try:
                 with open(photo_path, 'rb') as photo:
                     bot.send_photo(call.message.chat.id, photo, caption=caption)
             except Exception as e:
                 logging.error(f"Cannot send photo for payment {p['id']}: {e}")
                 bot.send_message(call.message.chat.id, caption + "\n\n❌ (عکس این فیش از سرور پاک شده است)")
-                
+                           
     elif key == "users_bot_non_approved_payments_list":
         list_mode = "Non_Approved_Payments"
         item_mode = "Payment"
