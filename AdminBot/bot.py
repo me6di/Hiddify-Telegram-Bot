@@ -2255,46 +2255,77 @@ def callback_query(call: CallbackQuery):
         # مرتب‌سازی بر اساس جدیدترین
         approved_payments_list.sort(key=operator.itemgetter('created_at'), reverse=True)
         
-        # ----- محاسبه آمار زمانی -----
-        import datetime
-        import os
+        # ----- محاسبه آمار زمانی (بدون ایمپورت محلی تا دکمه‌ها خراب نشوند) -----
         now = datetime.datetime.now()
         one_day_ago = now - datetime.timedelta(days=1)
         seven_days_ago = now - datetime.timedelta(days=7)
+        thirty_days_ago = now - datetime.timedelta(days=30)
         
-        count_1d, sum_1d = 0, 0
+        count_total, sum_total = len(approved_payments_list), 0
+        count_30d, sum_30d = 0, 0
+        count_month, sum_month = 0, 0
         count_7d, sum_7d = 0, 0
+        count_1d, sum_1d = 0, 0
+        
+        current_month = now.month
+        current_year = now.year
         
         for p in approved_payments_list:
             try:
+                p_amount = p['payment_amount']
+                sum_total += p_amount
+                
                 p_date = datetime.datetime.strptime(p['created_at'], "%Y-%m-%d %H:%M:%S")
-                if p_date >= one_day_ago:
-                    count_1d += 1
-                    sum_1d += p['payment_amount']
+                
+                if p_date >= thirty_days_ago:
+                    count_30d += 1
+                    sum_30d += p_amount
+                    
+                if p_date.month == current_month and p_date.year == current_year:
+                    count_month += 1
+                    sum_month += p_amount
+                    
                 if p_date >= seven_days_ago:
                     count_7d += 1
-                    sum_7d += p['payment_amount']
+                    sum_7d += p_amount
+                    
+                if p_date >= one_day_ago:
+                    count_1d += 1
+                    sum_1d += p_amount
             except:
                 pass
                 
-        stats_msg = "📊 <b>آمار تراکنش‌های تایید شده:</b>\n\n"
-        stats_msg += f"🔹 <b>۲۴ ساعت گذشته:</b> {count_1d} تراکنش | 💰 {utils.rial_to_toman(sum_1d)} تومان\n"
-        stats_msg += f"🔹 <b>۷ روز گذشته:</b> {count_7d} تراکنش | 💰 {utils.rial_to_toman(sum_7d)} تومان\n"
-        stats_msg += "〰️〰️〰️〰️〰️〰️〰️\n"
-        stats_msg += "👇 برای بررسی تکی همه تراکنش‌ها از دکمه‌های زیر استفاده کنید:"
+        stats_msg = "⬖ لیست تراکنشات\n"
+        stats_msg += f"⬖ تعداد تراکنشات: {count_total}\n"
+        stats_msg += f"⬖ مبلغ تراکنشات: {utils.rial_to_toman(sum_total)} تومان\n"
+        stats_msg += "❖⬩╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍⬩❖\n"
+        stats_msg += f"⬖ تراکنشات 30 روز گذشته: {count_30d}\n"
+        stats_msg += f"⬖ مبلغ تراکنشات 30 روز گذشته: {utils.rial_to_toman(sum_30d)} تومان\n"
+        stats_msg += "❖⬩╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍⬩❖\n"
+        stats_msg += f"⬖ تراکنشات این ماه: {count_month}\n"
+        stats_msg += f"⬖ مبلغ تراکنشات این ماه: {utils.rial_to_toman(sum_month)} تومان\n"
+        stats_msg += "❖⬩╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍⬩❖\n"
+        stats_msg += f"⬖ تراکنشات 7 روز گذشته: {count_7d}\n"
+        stats_msg += f"⬖ مبلغ 7 روز گذشته: {utils.rial_to_toman(sum_7d)} تومان\n"
+        stats_msg += "❖⬩╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍⬩❖\n"
+        stats_msg += f"⬖ تراکنشات 24 ساعت گذشته: {count_1d}\n"
+        stats_msg += f"⬖ مبلغ 24 ساعت گذشته: {utils.rial_to_toman(sum_1d)} تومان\n"
         
         # ۱. ویرایش پیام قبلی برای نمایش آمار به جای متن ساده
         bot.edit_message_text(stats_msg, call.message.chat.id, call.message.message_id,
                               reply_markup=markups.bot_user_item_list_markup(approved_payments_list))
                               
-        # ۲. ارسال ۷ فیش واریزی اخیر
-        bot.send_message(call.message.chat.id, "🖼 <b>۷ تراکنش تایید شده‌ی اخیر:</b>")
-        for p in approved_payments_list[:7]:
+        # ۲. ارسال ۵ فیش واریزی اخیر
+        bot.send_message(call.message.chat.id, "🖼 <b>۵ تراکنش تایید شده‌ی اخیر:</b>")
+        for p in approved_payments_list[:5]:
             user_data = USERS_DB.find_user(telegram_id=p['telegram_id'])
             u_data = user_data[0] if user_data else None
             
-            name = u_data['full_name'] or str(u_data['telegram_id']) if u_data else "نامشخص"
-            caption = f"🧾 تراکنش: #{p['id']}\n👤 کاربر: {name}\n💰 مبلغ: {utils.rial_to_toman(p['payment_amount'])} تومان\n📅 تاریخ: {p['created_at']}"
+            name = u_data['full_name'] or "نامشخص" if u_data else "نامشخص"
+            username = f"@{u_data['username']}" if u_data and u_data.get('username') else "ندارد ❌"
+            telegram_id = u_data['telegram_id'] if u_data else p['telegram_id']
+            
+            caption = f"🧾 تراکنش: #{p['id']}\n👤 کاربر: {name}\n🆔 آیدی: <code>{telegram_id}</code>\n💬 یوزرنیم: {username}\n💰 مبلغ: {utils.rial_to_toman(p['payment_amount'])} تومان\n📅 تاریخ: {p['created_at']}"
             
             photo_path = os.path.join(os.getcwd(), 'UserBot', 'Receiptions', p['payment_image'])
             try:
