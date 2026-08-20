@@ -361,7 +361,7 @@ def users_bot_management_settings_markup(settings):
     markup.add(InlineKeyboardButton(KEY_MARKUP['USERS_BOT_SETTINGS_SET_WELCOME_MSG'],
                                     callback_data=f"users_bot_settings_set_welcome_msg:None"),
                InlineKeyboardButton(KEY_MARKUP['USERS_BOT_SETTINGS_PANEL_MANUAL'],
-                                    callback_data="users_bot_settings_panel_manual_menu:None"))
+                                    callback_data="users_bot_settings_panel_manual:msg_manual_android"))
     markup.add(InlineKeyboardButton(KEY_MARKUP['USERS_BOT_SETTINGS_SET_FAQ_MSG'],
                                     callback_data=f"users_bot_settings_faq_management:None"))
     markup.add(InlineKeyboardButton(KEY_MARKUP['USERS_BOT_SETTINGS_VISIBLE_SUBS'],

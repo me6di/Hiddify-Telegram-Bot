@@ -778,7 +778,14 @@ def buy_subscription(message: Message):
 @bot.message_handler(func=lambda message: message.text == KEY_MARKUP['MANUAL'])
 def help_guide(message: Message):
     if is_user_banned(message.chat.id) or not is_user_in_channel(message.chat.id): return
-    bot.send_message(message.chat.id, MESSAGES['MANUAL_HDR'], reply_markup=users_bot_management_settings_panel_manual_markup())
+    
+    # دریافت متن راهنمای واحد (از کلید msg_manual_android به عنوان کلید یکپارچه استفاده می‌کنیم)
+    manual_text = utils.all_configs_settings().get('msg_manual_android')
+    
+    if not manual_text or manual_text.strip() == "None" or manual_text.strip() == "":
+        manual_text = "متن راهنما هنوز توسط مدیریت تنظیم نشده است."
+        
+    bot.send_message(message.chat.id, manual_text, reply_markup=main_menu_keyboard_markup())
     
 @bot.message_handler(func=lambda message: message.text == KEY_MARKUP['FAQ'])
 def faq(message: Message):
