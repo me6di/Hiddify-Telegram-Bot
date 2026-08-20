@@ -1252,6 +1252,7 @@ def admin_del_discount_step2(message: Message):
 # Callback Handler for Inline Buttons
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call: CallbackQuery):
+    import os, datetime, json, time  # 🛡 این خط تمام تداخل‌های پایتون را خنثی می‌کند
     logging.info(f"Callback Query: {call.data}")
     bot.answer_callback_query(call.id, MESSAGES['WAIT'])
     # Check if user is not admin
@@ -2343,7 +2344,7 @@ def callback_query(call: CallbackQuery):
             except Exception as e:
                 logging.error(f"Cannot send photo for payment {p['id']}: {e}")
                 bot.send_message(call.message.chat.id, caption + "\n\n❌ (عکس این فیش از سرور پاک شده است)")
-                           
+
     elif key == "users_bot_non_approved_payments_list":
         list_mode = "Non_Approved_Payments"
         item_mode = "Payment"
