@@ -2244,17 +2244,66 @@ def callback_query(call: CallbackQuery):
         item_mode = "Payment"
         payments_list = USERS_DB.select_payments()
         if not payments_list:
-            bot.send_message(call.message.chat.id, MESSAGES['ERROR_PAYMENT_NOT_FOUND'])
+            bot.answer_callback_query(call.id, MESSAGES.get('ERROR_PAYMENT_NOT_FOUND', 'تراکنشی یافت نشد.'), show_alert=True)
             return
+            
         approved_payments_list = [payment for payment in payments_list if payment['approved'] == 1]
         if not approved_payments_list:
-            bot.send_message(call.message.chat.id, MESSAGES['ERROR_PAYMENT_NOT_FOUND'])
+            bot.answer_callback_query(call.id, MESSAGES.get('ERROR_PAYMENT_NOT_FOUND', 'تراکنش تاییدی یافت نشد.'), show_alert=True)
             return
-        approved_payments_list.sort(key = operator.itemgetter('created_at'), reverse=True)
-        msg = templates.bot_payments_list_template(approved_payments_list)
-        bot.edit_message_text(msg, call.message.chat.id, call.message.message_id,
+            
+        # مرتب‌سازی بر اساس جدیدترین
+        approved_payments_list.sort(key=operator.itemgetter('created_at'), reverse=True)
+        
+        # ----- محاسبه آمار زمانی -----
+        import datetime
+        import os
+        now = datetime.datetime.now()
+        one_day_ago = now - datetime.timedelta(days=1)
+        seven_days_ago = now - datetime.timedelta(days=7)
+        
+        count_1d, sum_1d = 0, 0
+        count_7d, sum_7d = 0, 0
+        
+        for p in approved_payments_list:
+            try:
+                p_date = datetime.datetime.strptime(p['created_at'], "%Y-%m-%d %H:%M:%S")
+                if p_date >= one_day_ago:
+                    count_1d += 1
+                    sum_1d += p['payment_amount']
+                if p_date >= seven_days_ago:
+                    count_7d += 1
+                    sum_7d += p['payment_amount']
+            except:
+                pass
+                
+        stats_msg = "📊 <b>آمار تراکنش‌های تایید شده:</b>\n\n"
+        stats_msg += f"🔹 <b>۲۴ ساعت گذشته:</b> {count_1d} تراکنش | 💰 {utils.rial_to_toman(sum_1d)} تومان\n"
+        stats_msg += f"🔹 <b>۷ روز گذشته:</b> {count_7d} تراکنش | 💰 {utils.rial_to_toman(sum_7d)} تومان\n"
+        stats_msg += "〰️〰️〰️〰️〰️〰️〰️\n"
+        stats_msg += "👇 برای بررسی تکی همه تراکنش‌ها از دکمه‌های زیر استفاده کنید:"
+        
+        # ۱. ویرایش پیام قبلی برای نمایش آمار به جای متن ساده
+        bot.edit_message_text(stats_msg, call.message.chat.id, call.message.message_id,
                               reply_markup=markups.bot_user_item_list_markup(approved_payments_list))
-
+                              
+        # ۲. ارسال ۷ فیش واریزی اخیر
+        bot.send_message(call.message.chat.id, "🖼 <b>۷ تراکنش تایید شده‌ی اخیر:</b>")
+        for p in approved_payments_list[:7]:
+            user_data = USERS_DB.find_user(telegram_id=p['telegram_id'])
+            u_data = user_data[0] if user_data else None
+            
+            name = u_data['full_name'] or str(u_data['telegram_id']) if u_data else "نامشخص"
+            caption = f"🧾 تراکنش: #{p['id']}\n👤 کاربر: {name}\n💰 مبلغ: {utils.rial_to_toman(p['payment_amount'])} تومان\n📅 تاریخ: {p['created_at']}"
+            
+            photo_path = os.path.join(os.getcwd(), 'UserBot', 'Receiptions', p['payment_image'])
+            try:
+                with open(photo_path, 'rb') as photo:
+                    bot.send_photo(call.message.chat.id, photo, caption=caption)
+            except Exception as e:
+                logging.error(f"Cannot send photo for payment {p['id']}: {e}")
+                bot.send_message(call.message.chat.id, caption + "\n\n❌ (عکس این فیش از سرور پاک شده است)")
+                
     elif key == "users_bot_non_approved_payments_list":
         list_mode = "Non_Approved_Payments"
         item_mode = "Payment"
