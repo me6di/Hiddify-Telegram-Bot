@@ -306,6 +306,21 @@ def full_backup():
         dt_string = now.strftime("%d-%m-%Y_%H-%M-%S")
         zip_title = f"Backup_{dt_string}.zip"
         zip_file_name = zip_files(files, zip_title,path=BACKUP_LOC)
+        
+        # --- زباله‌روب خودکار بکاپ‌های قدیمی (بیشتر از ۷ روز) ---
+        import time
+        cutoff = time.time() - (7 * 86400) # محاسبه ۷ روز پیش به ثانیه
+        for directory in [BACKUP_LOC, BOT_BACKUP_LOC]:
+            if os.path.exists(directory):
+                for filename in os.listdir(directory):
+                    filepath = os.path.join(directory, filename)
+                    if os.path.isfile(filepath) and os.path.getmtime(filepath) < cutoff:
+                        try:
+                            os.remove(filepath)
+                        except:
+                            pass
+        # --------------------------------------------------------
+        
         if zip_file_name:
             return zip_file_name
     return False
